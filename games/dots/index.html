@@ -37,7 +37,8 @@
   .actions .btn{flex:none;max-width:none}
 }
 .paper{
-  width:min(100cqw,100cqh);height:min(100cqw,100cqh);border-radius:18px;
+  --size:min(100cqw,100cqh);
+  width:var(--size);height:var(--size);border-radius:18px;
   background:
     linear-gradient(rgba(47,107,255,.07) 1px, transparent 1px) 0 0/22px 22px,
     linear-gradient(90deg, rgba(47,107,255,.07) 1px, transparent 1px) 0 0/22px 22px,
@@ -373,6 +374,7 @@ const syncers = [
 function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
 
 /* ---------- Boot ---------- */
+Kit.fitSquare(document.querySelector('.boardArea'), document.querySelector('.paper'));
 const saved = store.get('game', null);
 if (saved && saved.lines && !saved.over){
   S = saved; S.history = S.history || []; G = geom(S.size);

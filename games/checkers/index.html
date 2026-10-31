@@ -304,6 +304,7 @@ const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['Player 1', 'Playe
 
 /* ---------- DOM ---------- */
 const squaresEl = $('squares'), piecesEl = $('pieces');
+Kit.fitSquare(document.querySelector('.boardArea'), document.querySelector('.board'));
 const sqEls = [];
 for (let i = 0; i < 64; i++){
   const el = document.createElement(isDark(i) ? 'button' : 'div');

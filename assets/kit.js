@@ -38,8 +38,7 @@ const sound = {
   bad(){ this.tone(330, 0.25, 'sine', 0.09); this.tone(247, 0.4, 'sine', 0.09, 0.18); },
   win(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.28, 'triangle', 0.09, i * 0.13)); }
 };
-document.addEventListener('pointerdown', () => sound.init(), {passive: true});
-document.addEventListener('keydown', () => sound.init());
+['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, () => sound.init(), {passive: true}));
 
 /* Wire a button to the shared sound preference. */
 function soundButton(btn){
@@ -107,5 +106,13 @@ function seg(el, get, onPick){
   return sync;
 }
 
-window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg};
+/* Square boards are sized with container units. Browsers without them (Safari before 16) get --size in pixels instead. */
+function fitSquare(area, el){
+  if (window.CSS && CSS.supports('width', '1cqw')) return;
+  const fit = () => el.style.setProperty('--size', Math.min(area.clientWidth, area.clientHeight) + 'px');
+  fit();
+  new ResizeObserver(fit).observe(area);
+}
+
+window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg, fitSquare};
 })();

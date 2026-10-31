@@ -35,7 +35,7 @@
   --muted:#c4cff2;
   --line:#7f95dc;
   --good:#ffffff;
-  --bad:#ff6f5e;
+  --bad:#ff8f80;
   --f-display:"Bungee", "Impact", "Arial Black", sans-serif;
   --f-ui:"Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
   --f-body:"Barlow", "Helvetica Neue", Arial, sans-serif;
@@ -71,11 +71,12 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   text-shadow:0 3px 0 var(--navy)}
 .turninfo{font-family:var(--f-ui); font-weight:600; font-size:clamp(17px,2.4vmin,22px); text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
 .turninfo b{color:var(--ink)}
-.headbtns{display:flex; gap:8px}
+.headbtns{display:flex; flex-wrap:wrap; gap:8px}
 .ghost{background:transparent; border:1.5px solid var(--line); border-radius:999px; padding:10px 16px; min-height:44px;
   font-family:var(--f-ui); font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
 .ghost:active{background:var(--navy)}
 .ghost.home{display:inline-flex; align-items:center; text-decoration:none}
+.ghost.snd.off{text-decoration:line-through; opacity:.8}
 
 /* Tray */
 .trayWrap{grid-area:tray; display:flex; flex-direction:column; gap:12px; min-height:0}
@@ -239,6 +240,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="turninfo" id="turninfo"></div>
     <div class="headbtns">
       <a class="ghost home" href="../../index.html" aria-label="Back to all games">&#8592; Games</a>
+      <button class="ghost" id="btnSound" type="button">♪</button>
       <button class="ghost" id="btnRules" type="button">Rules</button>
       <button class="ghost" id="btnNew" type="button">New game</button>
     </div>
@@ -342,8 +344,10 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   </div>
 </div>
 
+<script src="../../assets/kit.js"></script>
 <script>
 (function(){
+const {sound} = Kit;
 const $ = id => document.getElementById(id);
 const LS_KEY = 'farkle-table-v1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -568,7 +572,7 @@ function stamp(text, hot){
 function toggle(idx){
   if (busy || P().cpu || S.phase!=='rolled') { if (S.phase==='farkle' && !P().cpu && !busy) nextTurn(); return; }
   const d = S.dice[idx]; if (d.st!=='free') return;
-  d.sel = !d.sel; save(); render();
+  d.sel = !d.sel; sound.click(); save(); render();
 }
 
 async function doRoll(){
@@ -585,7 +589,7 @@ async function doRoll(){
       S.dice.forEach(d=>{ d.st='free'; d.sel=false; });
       S.keptLog = [];
       S.hot = true;
-      stamp('HOT DICE', true);
+      stamp('HOT DICE', true); sound.good();
       await sleep(700);
     }
   }
@@ -593,6 +597,7 @@ async function doRoll(){
   busy = true;
   freeDice().forEach(d => { d.v = 1 + Math.floor(Math.random()*6); d.sel=false; });
   scatter();
+  sound.dice();
   S.rolled = true; S.phase = 'rolled';
   lastRollAnim = true;
   render();
@@ -602,7 +607,7 @@ async function doRoll(){
     S.phase = 'farkle';
     P().last = 0;
     save(); render();
-    stamp('FARKLE');
+    stamp('FARKLE'); sound.bad();
     if (P().cpu){ await sleep(1700); nextTurn(); }
     return;
   }
@@ -616,6 +621,7 @@ function doBank(){
   const tt = S.turn + sc;
   if (!p.onBoard && tt < S.entry) return;
   p.onBoard = true; p.score += tt; p.last = tt;
+  sound.good();
   if (!S.final && p.score >= S.target) { S.final = {trigger:S.cur}; stamp('FINAL ROUND', true); }
   nextTurn();
 }
@@ -636,7 +642,7 @@ function endGame(){
   $('winSub').textContent = fmt(ranked[0].score) + ' points' + (ranked[0].cpu ? ' · better luck next time' : '');
   const wd = $('winDice'); wd.innerHTML = '';
   [1,2,3,4,5,6].forEach((v,i) => { const d = dieEl({v}, true); d.classList.remove('sm'); d.style.setProperty('--i', i); wd.appendChild(d); });
-  setTimeout(()=>{ $('overBox').hidden = false; celebrate(); }, 900);
+  setTimeout(()=>{ $('overBox').hidden = false; celebrate(); if (ranked[0].cpu) sound.bad(); else sound.win(); }, 900);
 }
 
 /* ---------- Winner celebration ---------- */
@@ -740,6 +746,7 @@ async function maybeCpu(){
     if (!alive()) return;
     const dec = cpuDecide();
     dec.pick.idx.forEach(i => S.dice[i].sel = true);
+    sound.click();
     render();
     await sleep(1000);
     if (!alive()) return;
@@ -774,6 +781,7 @@ $('segTarget').addEventListener('click', e => { const b=e.target.closest('button
 $('segEntry').addEventListener('click', e => { const b=e.target.closest('button'); if(b){ cfg.entry=+b.dataset.v; renderSetup(); } });
 $('startGame').addEventListener('click', () => { $('setup').hidden = true; newGame(cfg); });
 $('btnNew').addEventListener('click', () => { renderSetup(); $('setup').hidden = false; });
+Kit.soundButton($('btnSound'));
 $('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
 $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
 $('rematch').addEventListener('click', () => { stopParty(); $('overBox').hidden = true; const c = JSON.parse(JSON.stringify(cfg)); c.players = S.players.map(p=>({name:p.name,cpu:p.cpu})); newGame(c); });

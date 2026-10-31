@@ -121,3 +121,9 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
   .sheet,.callout.show{animation:none}
   .callout.show{opacity:1}
 }
+
+/* Browsers without color-mix (Safari before 16.2) */
+@supports not (color:color-mix(in srgb,red,blue)){
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent) 60%,var(--accent-2));box-shadow:0 4px 0 var(--accent-2)}
+  .pcard.on{background:rgba(255,255,255,.14)}
+}
