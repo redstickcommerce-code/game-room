@@ -37,8 +37,8 @@
   .actions{flex-direction:column;justify-content:flex-start}
   .actions .btn,.actions #btnMain{flex:none;max-width:none}
 }
-.swatch.w{background:radial-gradient(circle at 40% 35%,#fff,#f5e6c8 70%,#c9a978)}
-.swatch.k{background:radial-gradient(circle at 40% 35%,#6b4fb0,#33215c 70%,#160b33)}
+.swatch.w{background:radial-gradient(circle at 40% 35%,#fffdf6,#efe2c4 70%,#bfa47a)}
+.swatch.k{background:radial-gradient(circle at 40% 35%,#5a5a5a,#222 70%,#000);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3)}
 
 /* SVG pieces */
 .hl{animation:pulse 1s ease-in-out infinite}
@@ -356,16 +356,16 @@ function countAt(st, loc, side){
 const svg = $('svg');
 const PIPS = {1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]]};
 function checker(side, x, y, cls){
-  const f = side === 0 ? 'url(#cw)' : 'url(#ck)', st = side === 0 ? '#b8956a' : '#12082b', ring = side === 0 ? 'rgba(170,130,80,.45)' : 'rgba(140,110,220,.45)';
+  const f = side === 0 ? 'url(#cw)' : 'url(#ck)', st = side === 0 ? '#a8885a' : '#6b6b6b', ring = side === 0 ? 'rgba(160,120,70,.45)' : 'rgba(255,255,255,.18)';
   return `<g transform="translate(${x},${y})" class="${cls || ''}"><circle r="${R}" fill="${f}" stroke="${st}" stroke-width="2.5"/><circle r="${R * .62}" fill="none" stroke="${ring}" stroke-width="2.5"/></g>`;
 }
 function slab(side, x, y){
-  return `<rect x="${x - 25}" y="${y - 9}" width="50" height="17" rx="5" fill="${side === 0 ? '#fff4e0' : '#3b2569'}" stroke="${side === 0 ? '#b8956a' : '#12082b'}" stroke-width="2"/>`;
+  return `<rect x="${x - 25}" y="${y - 9}" width="50" height="17" rx="5" fill="${side === 0 ? '#f6ecd6' : '#222'}" stroke="${side === 0 ? '#a8885a' : '#6b6b6b'}" stroke-width="2"/>`;
 }
 function die(x, y, v, used, size){
   const s = size || 56, h = s / 2;
-  let out = `<g transform="translate(${x},${y})" opacity="${used ? .3 : 1}"><rect x="${-h}" y="${-h + 4}" width="${s}" height="${s}" rx="${s * .2}" fill="#5e8a00"/><rect x="${-h}" y="${-h}" width="${s}" height="${s}" rx="${s * .2}" fill="url(#dg)" stroke="#5e8a00" stroke-width="1.5"/>`;
-  for (const [a, b] of PIPS[v]) out += `<circle cx="${a * s * .27}" cy="${b * s * .27}" r="${s * .09}" fill="#22113f"/>`;
+  let out = `<g transform="translate(${x},${y})" opacity="${used ? .3 : 1}"><rect x="${-h}" y="${-h + 4}" width="${s}" height="${s}" rx="${s * .2}" fill="#a89270"/><rect x="${-h}" y="${-h}" width="${s}" height="${s}" rx="${s * .2}" fill="url(#dg)" stroke="#a89270" stroke-width="1.5"/>`;
+  for (const [a, b] of PIPS[v]) out += `<circle cx="${a * s * .27}" cy="${b * s * .27}" r="${s * .09}" fill="#1a1a1a"/>`;
   return out + '</g>';
 }
 function isHidden(loc, side, i){ return hidden.some(h => h.loc === loc && h.side === side && h.i === i); }
@@ -378,25 +378,25 @@ function render(){
   const sources = new Set(lg.map(m => m.from));
   const dests = new Set(sel !== null ? lg.filter(m => m.from === sel).map(m => m.to) : []);
   let o = `<defs>
-    <radialGradient id="cw" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f7ead0"/><stop offset="1" stop-color="#d8bb8e"/></radialGradient>
-    <radialGradient id="ck" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#7a5cc4"/><stop offset=".7" stop-color="#3b2569"/><stop offset="1" stop-color="#1c0f3d"/></radialGradient>
-    <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaff9a"/><stop offset=".6" stop-color="#c6f432"/><stop offset="1" stop-color="#9fd11c"/></linearGradient>
-    <linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a1d96"/><stop offset="1" stop-color="#2a0f60"/></linearGradient>
+    <radialGradient id="cw" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fffdf6"/><stop offset=".7" stop-color="#efe2c4"/><stop offset="1" stop-color="#cdb084"/></radialGradient>
+    <radialGradient id="ck" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#5a5a5a"/><stop offset=".7" stop-color="#262626"/><stop offset="1" stop-color="#0a0a0a"/></radialGradient>
+    <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#f7f0e0"/><stop offset="1" stop-color="#e2d5b8"/></linearGradient>
+    <linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3f1f"/><stop offset="1" stop-color="#3e220e"/></linearGradient>
   </defs>`;
   o += `<g transform="${portrait ? `translate(${H},0) rotate(90)` : ''}">`;
   o += `<rect x="0" y="0" width="${W}" height="${H}" rx="26" fill="url(#fr)"/>`;
-  o += `<rect x="20" y="20" width="420" height="720" rx="6" fill="#fff3dc"/><rect x="500" y="20" width="420" height="720" rx="6" fill="#fff3dc"/>`;
-  o += `<rect x="930" y="20" width="60" height="355" rx="8" fill="#1d0947"/><rect x="930" y="385" width="60" height="355" rx="8" fill="#1d0947"/>`;
+  o += `<rect x="20" y="20" width="420" height="720" rx="6" fill="#e3c99a"/><rect x="500" y="20" width="420" height="720" rx="6" fill="#e3c99a"/>`;
+  o += `<rect x="930" y="20" width="60" height="355" rx="8" fill="#2c1808"/><rect x="930" y="385" width="60" height="355" rx="8" fill="#2c1808"/>`;
   // points
   for (let p = 1; p <= 24; p++){
-    const x = colX(pointCol(p)), top = isTop(p), col = (pointCol(p) + (top ? 0 : 1)) % 2 ? '#ff4f8b' : '#1fb5b5';
+    const x = colX(pointCol(p)), top = isTop(p), col = (pointCol(p) + (top ? 0 : 1)) % 2 ? '#a51d1d' : '#1c1c1c';
     const tip = top ? 20 + 300 : 740 - 300, base = top ? 20 : 740;
     o += `<polygon points="${x + 3},${base} ${x + 67},${base} ${x + 35},${tip}" fill="${col}"/>`;
-    if (dests.has(p)) o += `<polygon class="hl" points="${x + 3},${base} ${x + 67},${base} ${x + 35},${tip}" fill="#c6f432" opacity=".85"/>`;
+    if (dests.has(p)) o += `<polygon class="hl" points="${x + 3},${base} ${x + 67},${base} ${x + 35},${tip}" fill="#ffd23f" opacity=".8"/>`;
     const ly = top ? 12 : 752, lx = x + 35;
-    o += `<text x="${lx}" y="${ly}" font-size="13" font-family="Barlow Condensed, sans-serif" font-weight="700" fill="#cdb6ff" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${lx} ${ly})"` : ''}>${p}</text>`;
+    o += `<text x="${lx}" y="${ly}" font-size="13" font-family="Barlow Condensed, sans-serif" font-weight="700" fill="#e8cfa6" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${lx} ${ly})"` : ''}>${p}</text>`;
   }
-  if (dests.has(OFF)) o += `<rect class="hl" x="930" y="${S.turn === 0 ? 385 : 20}" width="60" height="355" rx="8" fill="#c6f432" opacity=".7"/>`;
+  if (dests.has(OFF)) o += `<rect class="hl" x="930" y="${S.turn === 0 ? 385 : 20}" width="60" height="355" rx="8" fill="#ffd23f" opacity=".7"/>`;
   // checkers on points
   for (let p = 1; p <= 24; p++){
     const v = S.st.pts[p]; if (!v) continue;
@@ -406,9 +406,9 @@ function render(){
       const {x, y} = slot(p, side, i, n);
       const topOne = i === n - 1;
       o += checker(side, x, y);
-      if (topOne && sel === p) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#c6f432" stroke-width="7"/>`;
-      else if (topOne && sources.has(p) && !isCpu(S.turn)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#c6f432" stroke-width="5"/>`;
-      if (topOne && n > 5) o += `<text x="${x}" y="${y + 1}" font-size="26" font-family="Bungee, sans-serif" fill="${side === 0 ? '#3a1478' : '#fff'}" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${x} ${y})"` : ''}>${n}</text>`;
+      if (topOne && sel === p) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#ffd23f" stroke-width="7"/>`;
+      else if (topOne && sources.has(p) && !isCpu(S.turn)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#ffd23f" stroke-width="5"/>`;
+      if (topOne && n > 5) o += `<text x="${x}" y="${y + 1}" font-size="26" font-family="Bungee, sans-serif" fill="${side === 0 ? '#222' : '#fff'}" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${x} ${y})"` : ''}>${n}</text>`;
     }
   }
   // bar
@@ -418,8 +418,8 @@ function render(){
       if (isHidden(BAR, side, i)) continue;
       const {x, y} = slot(BAR, side, i, n);
       o += checker(side, x, y);
-      if (i === n - 1 && sel === BAR && S.turn === side) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#c6f432" stroke-width="7"/>`;
-      else if (i === n - 1 && sources.has(BAR) && S.turn === side && !isCpu(side)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#c6f432" stroke-width="5"/>`;
+      if (i === n - 1 && sel === BAR && S.turn === side) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#ffd23f" stroke-width="7"/>`;
+      else if (i === n - 1 && sources.has(BAR) && S.turn === side && !isCpu(side)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#ffd23f" stroke-width="5"/>`;
     }
     const m = S.st.off[side];
     for (let i = 0; i < m; i++){ if (isHidden(OFF, side, i)) continue; const {x, y} = slot(OFF, side, i, m); o += slab(side, x, y); }
@@ -637,7 +637,7 @@ function gameOver(winner){
   $('overSub').textContent = kind + ' · ' + pts + (pts === 1 ? ' point' : ' points') + '. Match: ' + n[0] + ' ' + S.score[0] + ' – ' + S.score[1] + ' ' + n[1] + '.';
   setTimeout(() => {
     $('overBox').hidden = false;
-    if (cpuWon) sound.bad(); else { sound.win(); confetti(['#c6f432', '#ff4f8b', '#1fb5b5', '#fff3dc', '#7a5cc4']); }
+    if (cpuWon) sound.bad(); else { sound.win(); confetti(['#a51d1d', '#f6ecd6', '#222222', '#e3c99a', '#c6f432']); }
   }, 600);
 }
 
