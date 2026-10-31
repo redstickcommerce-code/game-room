@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#e2541d">
+<title>Dots &amp; Boxes</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, square paper board, action row.
+   Landscape = board on the left, side rail on the right. */
+:root{
+  --bg1:#ff9a3c; --bg2:#b8330c;
+  --muted:#ffe2cc; --panel:rgba(90,20,0,.28); --line:rgba(255,226,204,.35);
+  --accent:#ffe14d; --accent-2:#f2b600; --accent-ink:#3d2500;
+  --p0:#2f6bff; --p1:#ff2f7d; --paper:#fffaf0; --dot:#3d2a52;
+}
+.page{height:100%;display:grid;gap:12px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"top" "players" "status" "board" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.status{grid-area:status}
+.boardArea{grid-area:board;min-height:0;display:flex;align-items:center;justify-content:center;container-type:size}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center}
+.actions .btn{flex:1;max-width:220px}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(250px,28vw,320px);
+    grid-template-rows:auto auto auto minmax(0,1fr);
+    grid-template-areas:"board top" "board players" "board status" "board actions"}
+  .players{grid-template-columns:1fr}
+  .actions{flex-direction:column;justify-content:flex-start}
+  .actions .btn{flex:none;max-width:none}
+}
+.paper{
+  width:min(100cqw,100cqh);height:min(100cqw,100cqh);border-radius:18px;
+  background:
+    linear-gradient(rgba(47,107,255,.07) 1px, transparent 1px) 0 0/22px 22px,
+    linear-gradient(90deg, rgba(47,107,255,.07) 1px, transparent 1px) 0 0/22px 22px,
+    var(--paper);
+  box-shadow:0 18px 40px rgba(60,10,0,.4), 0 0 0 6px rgba(255,255,255,.25);
+}
+.paper svg{width:100%;height:100%;display:block}
+.swatch.p0{background:var(--p0)} .swatch.p1{background:var(--p1)}
+.ln{stroke-linecap:round}
+.ln.new{animation:draw .35s ease-out}
+@keyframes draw{from{stroke-width:2;opacity:.2}}
+.box{transform-box:fill-box;transform-origin:center;animation:boxIn .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes boxIn{from{transform:scale(.2);opacity:0}}
+.tap{fill:transparent;cursor:pointer}
+.ghost{stroke-linecap:round;opacity:0;transition:opacity .12s;pointer-events:none}
+.tap:hover + .ghost{opacity:.35}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion: reduce){ .ln.new,.box{animation:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">DOTS &amp; BOXES</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" aria-label="Players">
+    <div class="pcard" id="card1"><span class="swatch p1"></span><div class="who"><div class="nm" id="name1">Computer</div><div class="sub" id="sub1">Pink</div></div><div class="num" id="num1">0</div></div>
+    <div class="pcard" id="card0"><span class="swatch p0"></span><div class="who"><div class="nm" id="name0">You</div><div class="sub" id="sub0">Blue</div></div><div class="num" id="num0">0</div></div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="boardArea"><div class="paper"><svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dots and boxes board"></svg></div></div>
+
+  <div class="actions">
+    <button class="btn" id="btnUndo" type="button">Undo</button>
+    <button class="btn primary" id="btnNew" type="button">New game</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New game</h2>
+    <p class="sub">Take turns drawing lines. Close a box to claim it and go again.</p>
+    <h4>Opponent</h4>
+    <div class="seg" id="segMode"><button type="button" data-v="cpu">Computer</button><button type="button" data-v="2p">Friend</button></div>
+    <div id="levelWrap">
+      <h4>Difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <h4>Board</h4>
+    <div class="seg" id="segSize"><button type="button" data-v="3">3 × 3</button><button type="button" data-v="5">5 × 5</button><button type="button" data-v="7">7 × 7</button></div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>On your turn, tap between two neighbouring dots to draw a line.</li>
+      <li>Draw the fourth side of a box and it's yours. You then have to draw another line.</li>
+      <li>When every line is drawn, whoever owns the most boxes wins.</li>
+      <li>Tip: try not to draw the third side of a box. That hands it to your opponent, and often a whole chain of boxes with it.</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('dots');
+
+/* ---------- Engine ----------
+   N boxes per side. Lines are numbered: horizontal lines first (row r = 0..N, col c = 0..N-1),
+   then vertical lines (row r = 0..N-1, col c = 0..N). lines[i] = -1 undrawn, else the player who drew it.
+   boxes[r*N+c] = -1 unclaimed, else owner. */
+function geom(N){
+  const H = (N + 1) * N, total = 2 * H;
+  const hIdx = (r, c) => r * N + c, vIdx = (r, c) => H + r * (N + 1) + c;
+  const sides = []; // box -> its four line ids
+  const boxesOf = Array.from({length: total}, () => []); // line -> adjacent boxes
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++){
+    const b = r * N + c, s = [hIdx(r, c), hIdx(r + 1, c), vIdx(r, c), vIdx(r, c + 1)];
+    sides.push(s); s.forEach(l => boxesOf[l].push(b));
+  }
+  return {N, H, total, sides, boxesOf};
+}
+const filled = (G, lines, b) => G.sides[b].reduce((n, l) => n + (lines[l] >= 0 ? 1 : 0), 0);
+/* Draw line l for player p; returns boxes it completed. */
+function drawLine(G, st, l, p){
+  st.lines[l] = p;
+  const done = [];
+  for (const b of G.boxesOf[l]) if (filled(G, st.lines, b) === 4){ st.boxes[b] = p; done.push(b); }
+  return done;
+}
+const free = (G, lines) => { const out = []; for (let i = 0; i < G.total; i++) if (lines[i] < 0) out.push(i); return out; };
+const completes = (G, lines, l) => G.boxesOf[l].some(b => filled(G, lines, b) === 3);
+const safe = (G, lines, l) => !G.boxesOf[l].some(b => filled(G, lines, b) >= 2);
+
+/* How many boxes would the opponent collect after we draw l, if they greedily take everything? */
+function giveaway(G, lines, l){
+  const L = lines.slice(); L[l] = 9;
+  let n = 0, again = true;
+  while (again){
+    again = false;
+    for (let x = 0; x < G.total; x++){
+      if (L[x] < 0 && completes(G, L, x)){
+        L[x] = 9; again = true;
+        n += G.boxesOf[x].filter(b => filled(G, L, b) === 4).length;
+      }
+    }
+  }
+  return n;
+}
+function choose(G, st, level){
+  const lines = st.lines, all = free(G, lines);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const caps = all.filter(l => completes(G, lines, l));
+  const safes = all.filter(l => !completes(G, lines, l) && safe(G, lines, l));
+  if (level === 'easy'){
+    if (caps.length && Math.random() < 0.7) return pick(caps);
+    if (safes.length && Math.random() < 0.7) return pick(safes);
+    return pick(all);
+  }
+  if (caps.length){
+    if (level === 'hard'){
+      const dd = doubleDeal(G, st, caps);
+      if (dd >= 0) return dd;
+    }
+    // prefer captures that don't open a new box for the opponent
+    return caps.find(l => !G.boxesOf[l].some(b => filled(G, lines, b) === 2)) ?? caps[0];
+  }
+  if (safes.length) return pick(safes);
+  // forced to give something away: give the least
+  let best = [], bv = Infinity;
+  for (const l of all){
+    const v = giveaway(G, lines, l);
+    if (v < bv){ bv = v; best = [l]; } else if (v === bv) best.push(l);
+  }
+  return pick(best);
+}
+/* Hard mode's endgame trick: when the last capture of a chain would leave us with no safe move,
+   leave the final two boxes for the opponent so they have to open the next chain. */
+function doubleDeal(G, st, caps){
+  // simulate taking every available box
+  const L = st.lines.slice();
+  let changed = true;
+  while (changed){
+    changed = false;
+    for (let l = 0; l < G.total; l++) if (L[l] < 0 && completes(G, L, l)){ L[l] = 9; changed = true; }
+  }
+  const rest = free(G, L);
+  if (!rest.length || rest.some(l => safe(G, L, l))) return -1;
+  let unclaimed = 0; for (let b = 0; b < G.N * G.N; b++) if (G.sides[b].some(l => L[l] < 0)) unclaimed++;
+  if (unclaimed < 3) return -1;
+  // exactly two boxes left to take in this chain: A (3 sides, missing shared line) and B (2 sides)
+  for (const l of caps){
+    const bs = G.boxesOf[l];
+    if (bs.length !== 2) continue;
+    const [x, y] = bs, fx = filled(G, st.lines, x), fy = filled(G, st.lines, y);
+    const A = fx === 3 && fy === 2 ? x : fy === 3 && fx === 2 ? y : -1;
+    if (A < 0) continue;
+    const B = A === x ? y : x;
+    // total capturable must be exactly these two
+    const capBoxes = new Set(); caps.forEach(c => G.boxesOf[c].forEach(b => { if (filled(G, st.lines, b) === 3) capBoxes.add(b); }));
+    if (capBoxes.size !== 1) continue;
+    const O = G.sides[B].find(s => st.lines[s] < 0 && s !== l);
+    if (O === undefined) continue;
+    // the chain must really end at B, and the handout must not feed a neighbouring box
+    if (G.boxesOf[O].some(b => b !== B && filled(G, st.lines, b) >= 2)) continue;
+    return O;
+  }
+  return -1;
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium', size: 5}, store.get('cfg', {}));
+let S = null, G = null, busy = false, gen = 0, lastLine = -1, fresh = new Set();
+const isCpu = p => S.mode === 'cpu' && p === 1;
+const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['Blue', 'Pink'];
+const score = p => S.boxes.filter(o => o === p).length;
+function save(){ store.set('game', S); }
+
+/* ---------- Rendering ---------- */
+const svg = $('svg');
+const PAD = 40, CELL = 100;
+function lineCoords(l){
+  const N = G.N;
+  if (l < G.H){ const r = Math.floor(l / N), c = l % N; return [PAD + c * CELL, PAD + r * CELL, PAD + (c + 1) * CELL, PAD + r * CELL]; }
+  const k = l - G.H, r = Math.floor(k / (N + 1)), c = k % (N + 1);
+  return [PAD + c * CELL, PAD + r * CELL, PAD + c * CELL, PAD + (r + 1) * CELL];
+}
+function render(){
+  const N = G.N, size = PAD * 2 + N * CELL, sw = N >= 7 ? 12 : 14;
+  svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+  const col = p => p === 0 ? 'var(--p0)' : 'var(--p1)';
+  let o = '';
+  // boxes
+  for (let b = 0; b < N * N; b++){
+    if (S.boxes[b] < 0) continue;
+    const r = Math.floor(b / N), c = b % N, x = PAD + c * CELL, y = PAD + r * CELL;
+    o += `<g class="${fresh.has(b) ? 'box' : ''}"><rect x="${x + 8}" y="${y + 8}" width="${CELL - 16}" height="${CELL - 16}" rx="12" fill="${col(S.boxes[b])}" opacity=".22"/>`;
+    o += `<text x="${x + CELL / 2}" y="${y + CELL / 2 + 3}" text-anchor="middle" dominant-baseline="middle" font-family="Bungee, sans-serif" font-size="${CELL * .42}" fill="${col(S.boxes[b])}">${S.boxes[b] === 0 ? '★' : '♥'}</text></g>`;
+  }
+  // drawn lines + tap targets for free ones
+  const canTap = !busy && !S.over && !isCpu(S.turn);
+  for (let l = 0; l < G.total; l++){
+    const [x1, y1, x2, y2] = lineCoords(l);
+    if (S.lines[l] >= 0){
+      o += `<line class="ln${l === lastLine ? ' new' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col(S.lines[l])}" stroke-width="${sw}"/>`;
+      if (l === lastLine) o += `<circle cx="${(x1 + x2) / 2}" cy="${(y1 + y2) / 2}" r="6" fill="#fff"/>`;
+    } else if (canTap){
+      // generous hit area around the line, kept short of the dots so neighbours don't overlap much
+      const horiz = y1 === y2;
+      o += horiz
+        ? `<rect class="tap" data-l="${l}" x="${x1 + 14}" y="${y1 - 26}" width="${CELL - 28}" height="52"/>`
+        : `<rect class="tap" data-l="${l}" x="${x1 - 26}" y="${y1 + 14}" width="52" height="${CELL - 28}"/>`;
+      o += `<line class="ghost" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col(S.turn)}" stroke-width="${sw}"/>`;
+    }
+  }
+  // dots
+  for (let r = 0; r <= N; r++) for (let c = 0; c <= N; c++) o += `<circle cx="${PAD + c * CELL}" cy="${PAD + r * CELL}" r="${N >= 7 ? 10 : 11}" fill="var(--dot)"/>`;
+  svg.innerHTML = o;
+  fresh.clear();
+  // UI
+  const n = names();
+  for (const p of [0, 1]){
+    $('name' + p).textContent = n[p];
+    $('num' + p).textContent = score(p);
+    $('card' + p).classList.toggle('on', !S.over && S.turn === p);
+  }
+  $('sub1').textContent = S.mode === 'cpu' ? 'Pink · ' + S.level : 'Pink';
+  const st = $('status'); st.classList.remove('thinking');
+  if (S.over) st.textContent = 'Game over';
+  else if (isCpu(S.turn)){ st.textContent = 'Computer is drawing'; st.classList.add('thinking'); }
+  else st.textContent = (S.mode === 'cpu' ? 'Your turn' : n[S.turn] + "'s turn") + (S.bonus ? ' · go again!' : '');
+  $('btnUndo').disabled = busy || !S.history.length;
+}
+
+/* ---------- Turn flow ---------- */
+function play(l){
+  const p = S.turn;
+  const done = drawLine(G, S, l, p);
+  lastLine = l;
+  done.forEach(b => fresh.add(b));
+  if (done.length){ sound.capture(); if (done.length === 2) callout('DOUBLE!'); S.bonus = true; }
+  else { sound.place(); S.turn = 1 - p; S.bonus = false; }
+  if (S.boxes.every(o => o >= 0)){ S.over = true; save(); render(); showOver(); return; }
+  save(); render();
+  maybeCpu();
+}
+async function maybeCpu(){
+  if (!S || S.over || !isCpu(S.turn)) return;
+  const my = gen;
+  busy = true; render();
+  await sleep(S.bonus ? 420 : 650);
+  if (my !== gen) return;
+  const l = choose(G, S, S.level);
+  busy = false;
+  play(l);
+}
+function showOver(){
+  const a = score(0), b = score(1), n = names();
+  const w = a > b ? 0 : b > a ? 1 : -1;
+  $('overTitle').textContent = w < 0 ? "It's a tie" : S.mode === 'cpu' ? (w === 0 ? 'You win!' : 'Computer wins') : n[w] + ' wins!';
+  $('overSub').textContent = n[0] + ' ' + a + ' · ' + n[1] + ' ' + b;
+  setTimeout(() => {
+    $('overBox').hidden = false;
+    if (S.mode === 'cpu' && w === 1) sound.bad(); else { sound.win(); confetti(['#2f6bff', '#ff2f7d', '#ffe14d', '#ffffff']); }
+  }, 600);
+}
+
+svg.addEventListener('click', e => {
+  const t = e.target.closest('.tap'); if (!t) return;
+  if (busy || S.over || isCpu(S.turn)) return;
+  S.history.push({lines: S.lines.slice(), boxes: S.boxes.slice(), turn: S.turn, bonus: S.bonus});
+  if (S.history.length > 200) S.history.shift();
+  play(+t.dataset.l);
+});
+
+/* ---------- Lifecycle ---------- */
+function newGame(){
+  gen++; stopConfetti(); $('overBox').hidden = true;
+  G = geom(+cfg.size);
+  S = {size: +cfg.size, lines: new Array(G.total).fill(-1), boxes: new Array(G.N * G.N).fill(-1), turn: 0, bonus: false, over: false, history: [], mode: cfg.mode, level: cfg.level};
+  lastLine = -1; busy = false;
+  save(); render();
+}
+function undo(){
+  if (busy || !S.history.length) return;
+  gen++;
+  const h = S.history.pop();
+  Object.assign(S, {lines: h.lines, boxes: h.boxes, turn: h.turn, bonus: h.bonus, over: false});
+  lastLine = -1; $('overBox').hidden = true; sound.click();
+  save(); render();
+}
+$('btnUndo').addEventListener('click', undo);
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newGame(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnAgain').addEventListener('click', newGame);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+const syncers = [
+  seg($('segMode'), () => cfg.mode, v => { cfg.mode = v; $('levelWrap').hidden = v !== 'cpu'; }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v),
+  seg($('segSize'), () => cfg.size, v => cfg.size = +v)
+];
+function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
+
+/* ---------- Boot ---------- */
+const saved = store.get('game', null);
+if (saved && saved.lines && !saved.over){
+  S = saved; S.history = S.history || []; G = geom(S.size);
+  render(); maybeCpu();
+} else {
+  G = geom(+cfg.size);
+  S = {size: +cfg.size, lines: new Array(G.total).fill(-1), boxes: new Array(G.N * G.N).fill(-1), turn: 0, bonus: false, over: false, history: [], mode: cfg.mode, level: cfg.level};
+  render(); syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>

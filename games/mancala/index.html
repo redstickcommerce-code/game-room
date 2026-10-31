@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1210">
+<title>Mancala</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one centred column. Header, scoreboard, status line, then an 8-column board grid:
+   computer store | six pits | your store, with two pit rows between the stores. Controls sit below. */
+:root{
+  --ink:#0d1210;
+  --panel:#141b18;
+  --line:#26312c;
+  --text:#ece6d8;
+  --muted:#8e9a92;
+  --brass:#e0b45a;
+  --teal:#5fc1b0;
+  --wood-hi:#6b4228;
+  --wood-1:#4a2c1b;
+  --wood-2:#2d190f;
+  --pit-1:#26150d;
+  --pit-2:#150a05;
+  --pit-3:#0a0502;
+  --font-display:'Bricolage Grotesque','Trebuchet MS',system-ui,sans-serif;
+  --font-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--ink)}
+body{
+  margin:0;
+  padding-block:clamp(14px,3vw,28px) 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  font:400 15px/1.45 var(--font-body);
+  color:var(--text);
+  background:radial-gradient(1100px 480px at 50% -8%,#1c2b25 0%,transparent 62%),var(--ink);
+  min-height:100%;
+}
+.app{max-width:880px;margin:0 auto;display:grid;gap:16px}
+.app>*{min-width:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* header */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font:700 clamp(30px,7vw,42px)/1 var(--font-display);letter-spacing:-.025em;margin:0}
+.sub{color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:8px}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;transition:color .2s,border-color .2s}
+a.ghost{text-decoration:none;display:inline-flex;align-items:center}
+.ghost{white-space:nowrap}
+.topbtns{display:flex;gap:8px}
+.ghost{min-height:40px}
+.ghost:hover{color:var(--text);border-color:#3a4a43}
+
+/* scoreboard */
+.scores{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);transition:border-color .25s,box-shadow .25s}
+.card.on{border-color:var(--brass);box-shadow:0 0 0 3px rgba(224,180,90,.14)}
+.who{display:flex;align-items:center;gap:9px;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.dot.cpu{background:var(--teal)}
+.dot.you{background:var(--brass)}
+.name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:12px;color:var(--muted)}
+.num{font:700 clamp(26px,6vw,34px)/1 var(--font-display);font-variant-numeric:tabular-nums}
+
+.status{min-height:26px;text-align:center;font-weight:500;font-size:15px}
+.status small{color:var(--muted);font-weight:400}
+.dots::after{content:'';animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* board */
+.board-wrap{container-type:inline-size}
+.board{
+  position:relative;
+  padding:4.6cqw 2.8cqw;
+  border-radius:4.4cqw;
+  background:
+    repeating-linear-gradient(91deg,rgba(255,255,255,.028) 0 2px,transparent 2px 9px,rgba(0,0,0,.06) 9px 11px,transparent 11px 23px),
+    linear-gradient(180deg,var(--wood-hi),var(--wood-1) 20%,var(--wood-2));
+  box-shadow:0 34px 60px -24px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.13),inset 0 0 0 .5cqw rgba(0,0,0,.28);
+}
+.grid{display:grid;grid-template-columns:1.18fr repeat(6,1fr) 1.18fr;grid-template-rows:auto auto;gap:2.4cqw 1.7cqw}
+.cell{display:flex;flex-direction:column;align-items:center;gap:1cqw;background:none;border:0;padding:0;min-width:0;cursor:default;-webkit-tap-highlight-color:transparent}
+.lbl{font:600 clamp(10px,2.2cqw,15px)/1 var(--font-body);color:#e3cfae;opacity:.85;font-variant-numeric:tabular-nums;min-height:1em}
+.lbl.zero{opacity:.35}
+.pit,.store{
+  position:relative;
+  background:radial-gradient(circle at 50% 30%,var(--pit-1) 0%,var(--pit-2) 58%,var(--pit-3) 100%);
+  box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.85),inset 0 -.25cqw .5cqw rgba(255,255,255,.05),0 1px 0 rgba(255,255,255,.09);
+  transition:box-shadow .25s;
+}
+.pit{display:block;width:100%;aspect-ratio:1;border-radius:50%}
+.cell.can{cursor:pointer}
+.cell.can .pit{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.85),0 0 0 .35cqw rgba(224,180,90,.35)}
+.cell.can:hover .pit,.cell.can:focus-visible .pit{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.8),0 0 0 .55cqw rgba(224,180,90,.85)}
+.cell:focus-visible{outline:none}
+.pit.dest,.store.dest{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.8),0 0 0 .5cqw rgba(95,193,176,.8)}
+.store.extra{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.8),0 0 0 .6cqw rgba(224,180,90,.95)}
+.pit.last{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.85),0 0 0 .3cqw rgba(95,193,176,.55)}
+.pit.hint{animation:hint 1s ease-in-out 3}
+.pit.flash{animation:flash .5s ease-in-out 2}
+@keyframes hint{50%{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.8),0 0 0 1cqw rgba(224,180,90,.9)}}
+@keyframes flash{50%{box-shadow:inset 0 .7cqw 1.5cqw rgba(0,0,0,.6),0 0 0 .9cqw rgba(239,122,99,.95)}}
+.store{border-radius:999px;grid-row:1 / span 2}
+.store.cpu{grid-column:1}
+.store.you{grid-column:8}
+.badge{
+  position:absolute;left:50%;transform:translateX(-50%);
+  min-width:2.1em;padding:.18em .55em;text-align:center;
+  font:700 clamp(13px,3.3cqw,21px)/1.1 var(--font-display);font-variant-numeric:tabular-nums;
+  color:var(--brass);background:#1b0f08;border:1px solid rgba(224,180,90,.6);border-radius:999px;
+  box-shadow:0 3px 8px rgba(0,0,0,.5);z-index:3;
+}
+.store.cpu .badge{top:-.55em}
+.store.you .badge{bottom:-.55em}
+
+/* glass stones */
+.stone{
+  position:absolute;border-radius:50%;aspect-ratio:1;pointer-events:none;
+  background:
+    radial-gradient(circle at 33% 27%,rgba(255,255,255,.9) 0 7%,rgba(255,255,255,0) 24%),
+    radial-gradient(circle at 42% 36%,var(--s1),var(--s2) 82%);
+  box-shadow:0 2px 3px rgba(0,0,0,.55),inset 0 -2px 3px rgba(0,0,0,.28);
+  transition:left .38s cubic-bezier(.3,.8,.3,1),top .38s cubic-bezier(.3,.8,.3,1),width .38s,margin .38s;
+}
+.c0{--s1:#56d2b2;--s2:#12705e}
+.c1{--s1:#f6bf5a;--s2:#a8601a}
+.c2{--s1:#f58a73;--s2:#9d3527}
+.c3{--s1:#7b96ee;--s2:#27388f}
+.c4{--s1:#f4efe3;--s2:#9b937f}
+.c5{--s1:#c78be6;--s2:#5a2b80}
+
+.callout{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:40;
+  padding:.35em 1em;border-radius:999px;white-space:nowrap;
+  font:700 clamp(14px,3.6cqw,23px)/1.2 var(--font-display);
+  color:var(--brass);background:rgba(16,10,5,.86);border:1px solid var(--brass);
+  pointer-events:none;opacity:0;
+}
+.callout.show{animation:pop 1.4s ease both}
+@keyframes pop{0%{opacity:0;transform:scale(.7)}14%{opacity:1;transform:scale(1.06)}26%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
+
+.result{
+  position:absolute;inset:0;z-index:50;display:grid;place-items:center;border-radius:inherit;
+  background:rgba(10,6,3,.66);backdrop-filter:blur(3px);animation:fade .5s ease both;
+}
+.result .box{text-align:center;padding:20px 24px;display:grid;gap:8px;justify-items:center}
+.result h2{margin:0;font:700 clamp(28px,7vw,46px)/1.05 var(--font-display);letter-spacing:-.02em}
+.result p{margin:0;color:#e3cfae}
+@keyframes fade{from{opacity:0}}
+
+/* controls */
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:16px;display:grid;gap:16px}
+.groups{display:flex;flex-wrap:wrap;gap:14px 24px}
+.grp{display:grid;gap:7px;min-width:0}
+.cap{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:11px;background:#0e1411;border:1px solid var(--line)}
+.seg button{background:transparent;border:0;border-radius:8px;padding:7px 13px;font-size:14px;color:var(--muted);cursor:pointer;transition:background .2s,color .2s}
+.seg button:hover{color:var(--text)}
+.seg button[aria-checked="true"]{background:var(--brass);color:#1b1305;font-weight:600}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{background:#1d2823;border:1px solid var(--line);border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;transition:background .2s,opacity .2s}
+.btn:hover:not(:disabled){background:#26342e}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#1b1305;font-weight:600}
+.btn.primary:hover:not(:disabled){background:#ecc271}
+.note{color:var(--muted);font-size:13px;margin-left:auto}
+details{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px 16px}
+summary{cursor:pointer;font-weight:600}
+details ul{margin:10px 0 2px;padding-left:18px;color:#c9d0c8;display:grid;gap:6px;max-width:65ch}
+details li::marker{color:var(--brass)}
+
+@media (max-width:520px){
+  .grid{grid-template-columns:1.05fr repeat(6,1fr) 1.05fr;gap:2.4cqw 1.2cqw}
+  .board{padding:5.4cqw 2.2cqw}
+  .card{padding:9px 11px}
+  .note{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .stone{transition:none}
+  .pit.hint,.pit.flash,.dots::after{animation:none}
+  .callout.show{animation-duration:.01s}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Mancala</h1>
+      <div class="sub">Kalah · 6 pits · 4 stones each</div>
+    </div>
+    <div class="topbtns">
+      <a class="ghost" href="../../index.html" aria-label="Back to all games">&#8592; Games</a>
+      <button class="ghost" id="soundBtn" type="button" aria-pressed="true">Sound on</button>
+    </div>
+  </header>
+
+  <section class="scores" aria-label="Score">
+    <div class="card" id="cardCpu">
+      <div class="who"><span class="dot cpu"></span><div><div class="name" id="nameCpu">Computer</div><div class="tag" id="tagCpu">Medium</div></div></div>
+      <div class="num" id="numCpu">0</div>
+    </div>
+    <div class="card" id="cardYou">
+      <div class="who"><span class="dot you"></span><div><div class="name" id="nameYou">You</div><div class="tag" id="tagYou">Bottom row</div></div></div>
+      <div class="num" id="numYou">0</div>
+    </div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+      <div class="grid" id="grid"></div>
+      <div class="callout" id="callout" aria-hidden="true"></div>
+      <div class="result" id="result" hidden>
+        <div class="box">
+          <h2 id="resTitle"></h2>
+          <p id="resLine"></p>
+          <button class="btn primary" id="again" type="button">Play again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="panel" aria-label="Game settings">
+    <div class="groups">
+      <div class="grp"><span class="cap">Opponent</span>
+        <div class="seg" role="radiogroup" aria-label="Opponent" data-key="mode">
+          <button type="button" role="radio" data-v="cpu">Computer</button>
+          <button type="button" role="radio" data-v="2p">Friend</button>
+        </div>
+      </div>
+      <div class="grp" id="levelGrp"><span class="cap">Difficulty</span>
+        <div class="seg" role="radiogroup" aria-label="Difficulty" data-key="level">
+          <button type="button" role="radio" data-v="easy">Easy</button>
+          <button type="button" role="radio" data-v="medium">Medium</button>
+          <button type="button" role="radio" data-v="hard">Hard</button>
+          <button type="button" role="radio" data-v="expert">Expert</button>
+        </div>
+      </div>
+      <div class="grp"><span class="cap">Moves first</span>
+        <div class="seg" role="radiogroup" aria-label="Moves first" data-key="first">
+          <button type="button" role="radio" data-v="0">You</button>
+          <button type="button" role="radio" data-v="1">Opponent</button>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="newBtn" type="button">New game</button>
+      <button class="btn" id="undoBtn" type="button">Undo</button>
+      <button class="btn" id="hintBtn" type="button">Hint</button>
+      <span class="note" id="note"></span>
+    </div>
+  </section>
+
+  <details>
+    <summary>How to play</summary>
+    <ul>
+      <li>On your turn, pick one of your pits (bottom row). Its stones are sown one by one, counter-clockwise, starting in the next pit.</li>
+      <li>Your store is on the right. Stones go into it as you pass, but never into your opponent's store.</li>
+      <li>End in your own store and you move again.</li>
+      <li>End in an empty pit on your side and you capture that stone plus everything in the pit opposite.</li>
+      <li>When one side runs out of stones, the other side keeps its remaining stones. Most stones in the store wins.</li>
+      <li>Keys 1–6 play the pits from left to right.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Engine (runs on the page and, as a copy, in a worker) ----------
+   Board: 0-5 your pits, 6 your store, 7-12 opponent pits, 13 opponent store.
+   Side 0 sows toward 6, side 1 toward 13. Pit i sits opposite pit 12-i. */
+function engine(){
+  function move(b, side, i, wantPath){
+    const nb = b.slice();
+    let s = nb[i]; nb[i] = 0;
+    let idx = i;
+    const mine = side === 0 ? 6 : 13, theirs = side === 0 ? 13 : 6;
+    const path = wantPath ? [] : null;
+    while(s > 0){
+      idx = (idx + 1) % 14;
+      if(idx === theirs) continue;
+      nb[idx]++; s--;
+      if(path) path.push(idx);
+    }
+    const extra = idx === mine;
+    let cap = 0;
+    const own = side === 0 ? idx <= 5 : (idx >= 7 && idx <= 12);
+    if(!extra && own && nb[idx] === 1 && nb[12 - idx] > 0){
+      cap = nb[12 - idx] + 1;
+      nb[mine] += cap; nb[idx] = 0; nb[12 - idx] = 0;
+    }
+    return {nb: nb, extra: extra, cap: cap, path: path, last: idx};
+  }
+  function isOver(b){
+    let a = 0, c = 0;
+    for(let k = 0; k < 6; k++){ a += b[k]; c += b[7 + k]; }
+    return a === 0 || c === 0;
+  }
+  function sweep(b){
+    const nb = b.slice();
+    for(let k = 0; k < 6; k++){ nb[6] += nb[k]; nb[k] = 0; nb[13] += nb[7 + k]; nb[7 + k] = 0; }
+    return nb;
+  }
+  function legal(b, side){
+    const o = side === 0 ? 0 : 7, r = [];
+    for(let k = 0; k < 6; k++) if(b[o + k] > 0) r.push(o + k);
+    return r;
+  }
+  // value from side 1's point of view
+  function evalB(b){
+    if(b[13] > 24) return 1000 + b[13] - b[6];
+    if(b[6] > 24) return -1000 - (b[6] - b[13]);
+    if(isOver(b)){
+      const s = sweep(b), d = s[13] - s[6];
+      return d > 0 ? 1000 + d : d < 0 ? -1000 + d : 0;
+    }
+    let own = 0, opp = 0;
+    for(let k = 0; k < 6; k++){ opp += b[k]; own += b[7 + k]; }
+    return (b[13] - b[6]) + 0.08 * (own - opp);
+  }
+  function ordered(b, side){
+    const ms = legal(b, side), arr = [];
+    for(const m of ms){
+      const r = move(b, side, m, false);
+      let sc = (side === 0 ? m : m - 7) * 0.1 + Math.random() * 0.01;
+      if(r.extra) sc += 100;
+      if(r.cap) sc += 10 + r.cap;
+      arr.push({m: m, r: r, sc: sc});
+    }
+    arr.sort(function(x, y){ return y.sc - x.sc; });
+    return arr;
+  }
+  let nodes = 0, deadline = 0, aborted = false;
+  function search(b, side, depth, alpha, beta){
+    if(++nodes % 2048 === 0 && deadline && Date.now() > deadline) aborted = true;
+    if(aborted) return 0;
+    if(depth <= 0 || b[13] > 24 || b[6] > 24 || isOver(b)) return evalB(b);
+    const list = ordered(b, side);
+    if(side === 1){
+      let best = -Infinity;
+      for(const e of list){
+        const v = search(e.r.nb, e.r.extra ? 1 : 0, depth - 1, alpha, beta);
+        if(v > best) best = v;
+        if(best > alpha) alpha = best;
+        if(alpha >= beta) break;
+      }
+      return best;
+    }
+    let best = Infinity;
+    for(const e of list){
+      const v = search(e.r.nb, e.r.extra ? 0 : 1, depth - 1, alpha, beta);
+      if(v < best) best = v;
+      if(best < beta) beta = best;
+      if(alpha >= beta) break;
+    }
+    return best;
+  }
+  function rootSearch(b, side, depth, first){
+    const list = ordered(b, side);
+    if(first != null) list.sort(function(x, y){ return (y.m === first) - (x.m === first); });
+    let best = null, bv = side === 1 ? -Infinity : Infinity, alpha = -Infinity, beta = Infinity;
+    for(const e of list){
+      const v = search(e.r.nb, e.r.extra ? side : 1 - side, depth - 1, alpha, beta);
+      if(aborted) return null;
+      if(side === 1 ? v > bv : v < bv){
+        bv = v; best = e.m;
+        if(side === 1) alpha = Math.max(alpha, v); else beta = Math.min(beta, v);
+      }
+    }
+    return {m: best, v: bv};
+  }
+  function choose(b, side, level){
+    const ms = legal(b, side);
+    if(ms.length <= 1) return ms[0];
+    const sign = side === 1 ? 1 : -1;
+    if(level === 'easy'){
+      if(Math.random() < 0.55) return ms[Math.floor(Math.random() * ms.length)];
+      let best = ms[0], bv = -Infinity;
+      for(const m of ms){
+        const r = move(b, side, m, false);
+        const v = sign * (r.nb[13] - r.nb[6]) + Math.random() * 0.5;
+        if(v > bv){ bv = v; best = m; }
+      }
+      return best;
+    }
+    if(level === 'medium'){
+      let best = ms[0], bv = -Infinity;
+      for(const m of ms){
+        const r = move(b, side, m, false);
+        aborted = false; deadline = 0;
+        const v = sign * search(r.nb, r.extra ? side : 1 - side, 2, -Infinity, Infinity) + (Math.random() - 0.5) * 1.6;
+        if(v > bv){ bv = v; best = m; }
+      }
+      return best;
+    }
+    const cfg = level === 'hard' ? {d: 6, t: 700} : {d: 22, t: 1500};
+    aborted = false; nodes = 0; deadline = Date.now() + cfg.t;
+    let pick = ms[0], prev = null;
+    for(let d = 1; d <= cfg.d; d++){
+      const r = rootSearch(b, side, d, prev);
+      if(!r) break;
+      pick = r.m; prev = r.m;
+      if(Math.abs(r.v) >= 1000) break;
+    }
+    return pick;
+  }
+  return {move: move, isOver: isOver, sweep: sweep, legal: legal, choose: choose};
+}
+const E = engine();
+let worker = null, reqId = 0;
+try{
+  const src = 'const E=(' + engine.toString() + ')();self.onmessage=function(e){var d=e.data;self.postMessage({id:d.id,m:E.choose(d.b,d.side,d.level)})}';
+  worker = new Worker(URL.createObjectURL(new Blob([src], {type: 'text/javascript'})));
+}catch(err){ worker = null; }
+function ask(b, side, level){
+  return new Promise(function(resolve){
+    let done = false;
+    const finish = function(m){ if(!done){ done = true; resolve(m); } };
+    if(!worker){ setTimeout(function(){ finish(E.choose(b, side, level)); }, 30); return; }
+    const id = ++reqId;
+    const h = function(ev){ if(ev.data && ev.data.id === id){ worker.removeEventListener('message', h); finish(ev.data.m); } };
+    worker.addEventListener('message', h);
+    worker.postMessage({id: id, b: b, side: side, level: level});
+    setTimeout(function(){ if(!done){ worker.removeEventListener('message', h); finish(E.choose(b, side, 'medium')); } }, 6000);
+  });
+}
+
+/* ---------- Helpers ---------- */
+const $ = function(s){ return document.querySelector(s); };
+const sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const store = {
+  get: function(k, d){ try{ const v = localStorage.getItem('mancala:' + k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set: function(k, v){ try{ localStorage.setItem('mancala:' + k, JSON.stringify(v)); }catch(e){} }
+};
+const LEVELS = {easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert'};
+
+/* ---------- Sound (synthesised, starts after first tap) ---------- */
+const sound = {
+  on: store.get('sound', true), ctx: null,
+  init: function(){
+    if(!this.ctx){ try{ this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+    if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  tone: function(f, d, type, g, delay){
+    if(!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime + (delay || 0), o = this.ctx.createOscillator(), v = this.ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f, t);
+    v.gain.setValueAtTime(0.0001, t);
+    v.gain.exponentialRampToValueAtTime(g || 0.1, t + 0.008);
+    v.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(v); v.connect(this.ctx.destination);
+    o.start(t); o.stop(t + d + 0.03);
+  },
+  drop: function(k){ this.tone(640 + Math.min(k, 12) * 38, 0.09, 'triangle', 0.07); this.tone(190, 0.07, 'sine', 0.06); },
+  pick: function(){ this.tone(330, 0.07, 'triangle', 0.06); },
+  capture: function(){ this.tone(523, 0.14, 'triangle', 0.09); this.tone(392, 0.2, 'triangle', 0.09, 0.1); this.tone(262, 0.3, 'sine', 0.09, 0.2); },
+  extra: function(){ this.tone(523, 0.12, 'sine', 0.09); this.tone(659, 0.12, 'sine', 0.09, 0.09); this.tone(784, 0.2, 'sine', 0.09, 0.18); },
+  win: function(){ [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.28, 'triangle', 0.09, i * 0.13)); },
+  lose: function(){ this.tone(330, 0.3, 'sine', 0.09); this.tone(247, 0.5, 'sine', 0.09, 0.2); },
+  draw: function(){ this.tone(440, 0.25, 'triangle', 0.08); this.tone(440, 0.35, 'triangle', 0.08, 0.2); }
+};
+document.addEventListener('pointerdown', function(){ sound.init(); }, {passive: true});
+document.addEventListener('keydown', function(){ sound.init(); });
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium', first: 0}, store.get('cfg', {}));
+const S = {mode: 'cpu', level: 'medium', board: [], turn: 0, busy: false, over: false, history: [], moves: 0, last: null, gen: 0, status: ''};
+
+/* ---------- Board DOM ---------- */
+const grid = $('#grid'), boardEl = $('#board');
+const els = new Array(14), lbls = new Array(14), cells = new Array(14), badges = new Array(14);
+const stonesArr = []; for(let i = 0; i < 14; i++) stonesArr.push([]);
+
+function mkCell(i){
+  const top = i >= 7;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'cell ' + (top ? 'top' : 'bot');
+  b.dataset.i = i;
+  b.style.gridColumn = top ? (14 - i) : (i + 2);
+  b.style.gridRow = top ? 1 : 2;
+  const lbl = document.createElement('span'); lbl.className = 'lbl';
+  const pit = document.createElement('span'); pit.className = 'pit';
+  if(top) b.append(lbl, pit); else b.append(pit, lbl);
+  els[i] = pit; lbls[i] = lbl; cells[i] = b;
+  return b;
+}
+function mkStore(i){
+  const s = document.createElement('div');
+  s.className = 'store ' + (i === 13 ? 'cpu' : 'you');
+  const bd = document.createElement('span'); bd.className = 'badge';
+  s.append(bd);
+  els[i] = s; badges[i] = bd;
+  return s;
+}
+(function build(){
+  const f = document.createDocumentFragment();
+  f.append(mkStore(13));
+  for(let i = 7; i <= 12; i++) f.append(mkCell(i));
+  f.append(mkStore(6));
+  for(let i = 0; i < 6; i++) f.append(mkCell(i));
+  grid.append(f);
+})();
+
+function mkStone(){
+  const s = document.createElement('i');
+  s.className = 'stone c' + Math.floor(Math.random() * 6);
+  s._jx = Math.random() - 0.5; s._jy = Math.random() - 0.5;
+  return s;
+}
+// Phyllotaxis packing: slot k keeps its place as stones are added or removed from the end.
+function layout(i){
+  const el = els[i], arr = stonesArr[i], n = arr.length;
+  if(!n) return;
+  const isStore = i === 6 || i === 13;
+  const w = el.clientWidth || 1, h = el.clientHeight || 1;
+  const ratio = isStore ? h / w : 1;
+  const dmax = isStore ? 30 : 26;
+  const c = Math.min(36 / (Math.sqrt(n) + 0.7), dmax / 1.72);
+  const d = Math.min(dmax, c * 1.72);
+  let sy = 1;
+  if(isStore){
+    const ymax = ratio * 50 - 14 - d / 2;
+    sy = Math.max(1, Math.min(ratio * 0.8, ymax / (c * Math.sqrt(n) + 1e-6)));
+  }
+  for(let k = 0; k < n; k++){
+    const s = arr[k], r = c * Math.sqrt(k + 0.5), a = k * 2.39996 + i * 0.7;
+    const x = r * Math.cos(a) + s._jx * d * 0.18;
+    const y = r * Math.sin(a) * sy + s._jy * d * 0.18;
+    s.style.width = d + '%';
+    s.style.left = (50 + x) + '%';
+    s.style.top = (50 + y / ratio) + '%';
+    s.style.margin = (-d / 2) + '% 0 0 ' + (-d / 2) + '%';
+  }
+}
+function layoutAll(){ for(let i = 0; i < 14; i++) layout(i); }
+function refresh(i){
+  const n = stonesArr[i].length;
+  if(i === 6 || i === 13){
+    badges[i].textContent = n;
+    $(i === 13 ? '#numCpu' : '#numYou').textContent = n;
+  }else{
+    lbls[i].textContent = n;
+    lbls[i].classList.toggle('zero', n === 0);
+  }
+}
+if(window.ResizeObserver) new ResizeObserver(layoutAll).observe(boardEl);
+
+/* Clear and rebuild every stone to match a board; optionally animate them dealing in. */
+function rebuild(board, deal){
+  for(let i = 0; i < 14; i++){
+    stonesArr[i].forEach(function(s){ s.remove(); });
+    stonesArr[i] = [];
+  }
+  let k = 0;
+  for(let i = 0; i < 14; i++){
+    for(let j = 0; j < board[i]; j++){
+      const s = mkStone(); s._at = i;
+      els[i].append(s); stonesArr[i].push(s);
+      if(deal && !RM && s.animate){
+        s.animate([{opacity: 0, transform: 'translateY(-26px) scale(1.35)'}, {opacity: 1, transform: 'none'}],
+          {duration: 420, delay: (k++) * 14, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'backwards'});
+      }
+    }
+  }
+  layoutAll();
+  for(let i = 0; i < 14; i++) refresh(i);
+}
+
+/* Move one stone to another pit with a real flight (FLIP + arc). */
+function fly(stone, toI, dur){
+  const from = stone._at, a = stonesArr[from], at = a.indexOf(stone);
+  const r0 = stone.getBoundingClientRect();
+  if(stone.getAnimations) stone.getAnimations().forEach(function(x){ x.cancel(); });
+  if(at >= 0) a.splice(at, 1);
+  stone.style.transition = 'none';
+  stone.style.zIndex = 30;
+  els[toI].append(stone);
+  stone._at = toI;
+  stonesArr[toI].push(stone);
+  layout(toI); layout(from);
+  refresh(from); refresh(toI);
+  const r1 = stone.getBoundingClientRect();
+  const dx = (r0.left + r0.width / 2) - (r1.left + r1.width / 2);
+  const dy = (r0.top + r0.height / 2) - (r1.top + r1.height / 2);
+  const s0 = r1.width ? r0.width / r1.width : 1;
+  const D = RM ? 1 : (dur || 420);
+  let anim = null;
+  if(stone.animate && !RM){
+    const lift = Math.min(36, 10 + Math.hypot(dx, dy) * 0.18);
+    anim = stone.animate([
+      {transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + s0 + ')', offset: 0},
+      {transform: 'translate(' + (dx / 2) + 'px,' + (dy / 2 - lift) + 'px) scale(' + (Math.max(s0, 1) * 1.22) + ')', offset: 0.5},
+      {transform: 'none', offset: 1}
+    ], {duration: D, easing: 'cubic-bezier(.35,.55,.3,1)'});
+  }
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ stone.style.transition = ''; }); });
+  setTimeout(function(){ stone.style.zIndex = ''; }, D + 30);
+  return anim;
+}
+
+/* ---------- UI helpers ---------- */
+function names(){
+  const cpu = S.mode === 'cpu';
+  return {top: cpu ? 'Computer' : 'Player 2', bot: cpu ? 'You' : 'Player 1'};
+}
+function playable(i){
+  if(S.busy || S.over) return false;
+  if(S.mode === 'cpu' && S.turn !== 0) return false;
+  const ok = S.turn === 0 ? i <= 5 : (i >= 7 && i <= 12);
+  return ok && stonesArr[i].length > 0;
+}
+function updateUI(){
+  const n = names();
+  $('#nameCpu').textContent = n.top; $('#nameYou').textContent = n.bot;
+  $('#tagCpu').textContent = S.mode === 'cpu' ? LEVELS[S.level] : 'Top row';
+  $('#tagYou').textContent = 'Bottom row';
+  $('#cardCpu').classList.toggle('on', !S.over && S.turn === 1);
+  $('#cardYou').classList.toggle('on', !S.over && S.turn === 0);
+  for(let i = 0; i < 14; i++){
+    if(i === 6 || i === 13) continue;
+    const c = cells[i], ok = playable(i);
+    c.classList.toggle('can', ok);
+    c.disabled = !ok;
+    const who = i <= 5 ? n.bot : n.top;
+    c.setAttribute('aria-label', who + ' pit ' + (i <= 5 ? i + 1 : 13 - i) + ', ' + stonesArr[i].length + ' stones');
+  }
+  const st = $('#status');
+  if(S.over) st.textContent = '';
+  else if(S.status) st.innerHTML = S.status;
+  else if(S.mode === 'cpu') st.innerHTML = S.turn === 0 ? 'Your move' : 'Computer is thinking<span class="dots"></span>';
+  else st.textContent = S.turn === 0 ? 'Player 1 to move' : 'Player 2 to move';
+  $('#undoBtn').disabled = S.busy || !S.history.length;
+  $('#hintBtn').disabled = S.busy || S.over || (S.mode === 'cpu' && S.turn !== 0);
+}
+let calloutT = 0;
+function callout(text){
+  const c = $('#callout');
+  c.textContent = text;
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+  clearTimeout(calloutT); calloutT = setTimeout(function(){ c.classList.remove('show'); }, 1500);
+}
+function clearMarks(){
+  for(let i = 0; i < 14; i++) els[i].classList.remove('dest', 'extra', 'last', 'hint', 'flash');
+}
+function showRecord(){
+  const rec = store.get('rec', {});
+  const r = rec[cfg.level] || {w: 0, l: 0, d: 0};
+  $('#note').textContent = cfg.mode === 'cpu' ? 'Record vs ' + LEVELS[cfg.level] + ': ' + r.w + 'W · ' + r.l + 'L · ' + r.d + 'D' : '';
+}
+
+/* ---------- Playing a move ---------- */
+async function execute(side, i){
+  const gen = S.gen;
+  const alive = function(){ return gen === S.gen; };
+  clearMarks();
+  S.busy = true; S.status = ''; S.moves++;
+  if(S.mode === '2p' || side === 0) S.history.push({board: S.board.slice(), turn: side, moves: S.moves - 1});
+  updateUI();
+  const r = E.move(S.board, side, i, true);
+  const step = RM ? 40 : 235;
+  els[i].classList.add('last');
+  sound.pick();
+  await sleep(RM ? 0 : 160);
+  if(!alive()) return;
+  for(let k = 0; k < r.path.length; k++){
+    const arr = stonesArr[i];
+    fly(arr[arr.length - 1], r.path[k]);
+    sound.drop(k);
+    await sleep(step);
+    if(!alive()) return;
+  }
+  await sleep(RM ? 0 : 320);
+  if(!alive()) return;
+  els[i].classList.remove('last');
+  els[r.last].classList.add('last');
+  const myStore = side === 0 ? 6 : 13;
+  if(r.cap){
+    const op = 12 - r.last;
+    els[r.last].classList.add('flash'); els[op].classList.add('flash');
+    sound.capture(); callout('Capture +' + r.cap);
+    await sleep(RM ? 0 : 520);
+    if(!alive()) return;
+    const group = stonesArr[op].slice().reverse().concat(stonesArr[r.last].slice().reverse());
+    for(const s of group){ fly(s, myStore, 480); sound.drop(3); await sleep(RM ? 0 : 75); if(!alive()) return; }
+    await sleep(RM ? 0 : 450);
+    if(!alive()) return;
+    els[r.last].classList.remove('flash'); els[op].classList.remove('flash');
+  }
+  S.board = r.nb;
+  S.last = r.last;
+  if(E.isOver(S.board)){ await finish(gen); return; }
+  S.turn = r.extra ? side : 1 - side;
+  S.busy = false;
+  if(r.extra){
+    sound.extra(); callout('Extra turn');
+    S.status = S.mode === 'cpu' ? (side === 0 ? 'Extra turn: move again' : 'Computer moves again') : '<small>Extra turn:</small> ' + (side === 0 ? 'Player 1' : 'Player 2') + ' again';
+  }else S.status = '';
+  updateUI();
+  if(S.mode === 'cpu' && S.turn === 1) aiTurn();
+}
+async function aiTurn(){
+  const gen = S.gen;
+  S.busy = true; S.status = ''; updateUI();
+  const t0 = performance.now();
+  const m = await ask(S.board.slice(), 1, S.level);
+  const wait = Math.max(0, (S.level === 'easy' ? 450 : 750) - (performance.now() - t0));
+  await sleep(wait);
+  if(gen !== S.gen) return;
+  S.busy = false;
+  await execute(1, m);
+}
+async function finish(gen){
+  const alive = function(){ return gen === S.gen; };
+  S.busy = true; S.status = ''; updateUI();
+  for(let i = 0; i < 6; i++){
+    for(const s of stonesArr[i].slice()){ fly(s, 6, 460); await sleep(RM ? 0 : 55); if(!alive()) return; }
+    for(const s of stonesArr[7 + i].slice()){ fly(s, 13, 460); await sleep(RM ? 0 : 55); if(!alive()) return; }
+  }
+  await sleep(RM ? 0 : 550);
+  if(!alive()) return;
+  S.board = E.sweep(S.board);
+  S.over = true; S.busy = false;
+  const you = S.board[6], opp = S.board[13], cpu = S.mode === 'cpu', n = names();
+  let title, snd;
+  if(you > opp){ title = cpu ? 'You win' : 'Player 1 wins'; snd = 'win'; }
+  else if(opp > you){ title = cpu ? 'Computer wins' : 'Player 2 wins'; snd = cpu ? 'lose' : 'win'; }
+  else{ title = 'Draw'; snd = 'draw'; }
+  $('#resTitle').textContent = title;
+  $('#resLine').textContent = n.bot + ' ' + you + '  ·  ' + n.top + ' ' + opp + (you === opp ? '' : '  ·  by ' + Math.abs(you - opp));
+  $('#result').hidden = false;
+  sound[snd]();
+  if(cpu){
+    const rec = store.get('rec', {});
+    const r = rec[S.level] || {w: 0, l: 0, d: 0};
+    if(you > opp) r.w++; else if(opp > you) r.l++; else r.d++;
+    rec[S.level] = r; store.set('rec', rec);
+    showRecord();
+  }
+  updateUI();
+}
+
+/* ---------- Game lifecycle ---------- */
+function newGame(){
+  S.gen++;
+  S.mode = cfg.mode; S.level = cfg.level;
+  S.board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+  S.turn = cfg.first; S.busy = false; S.over = false; S.history = []; S.moves = 0; S.last = null; S.status = '';
+  $('#result').hidden = true;
+  clearMarks();
+  rebuild(S.board, true);
+  showRecord();
+  updateUI();
+  if(S.mode === 'cpu' && S.turn === 1) setTimeout(function(){ if(S.moves === 0 && !S.busy && S.turn === 1) aiTurn(); }, RM ? 0 : 700);
+}
+function undo(){
+  if(S.busy || !S.history.length) return;
+  const h = S.history.pop();
+  S.gen++;
+  S.board = h.board; S.turn = h.turn; S.moves = h.moves; S.over = false; S.status = '';
+  $('#result').hidden = true;
+  clearMarks();
+  rebuild(S.board, false);
+  updateUI();
+}
+async function hint(){
+  if($('#hintBtn').disabled) return;
+  const gen = S.gen, side = S.turn;
+  $('#hintBtn').disabled = true;
+  const m = await ask(S.board.slice(), side, 'hard');
+  if(gen !== S.gen) return;
+  clearMarks();
+  els[m].classList.add('hint');
+  setTimeout(function(){ els[m].classList.remove('hint'); }, 3200);
+  updateUI();
+}
+
+/* ---------- Input ---------- */
+function clearDest(){ for(let i = 0; i < 14; i++) els[i].classList.remove('dest', 'extra'); }
+grid.addEventListener('click', function(e){
+  const c = e.target.closest('.cell');
+  if(!c) return;
+  const i = +c.dataset.i;
+  if(playable(i)){ clearDest(); execute(S.turn, i); }
+});
+grid.addEventListener('pointerover', function(e){
+  const c = e.target.closest('.cell');
+  clearDest();
+  if(!c) return;
+  const i = +c.dataset.i;
+  if(!playable(i)) return;
+  const r = E.move(S.board, S.turn, i, false);
+  els[r.last].classList.add(r.extra ? 'extra' : 'dest');
+});
+grid.addEventListener('pointerleave', clearDest);
+document.addEventListener('keydown', function(e){
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = +e.key;
+  if(k >= 1 && k <= 6){
+    const i = S.turn === 0 ? k - 1 : 13 - k;
+    if(playable(i)){ clearDest(); execute(S.turn, i); }
+  }
+});
+
+/* settings */
+function syncSeg(){
+  document.querySelectorAll('.seg').forEach(function(seg){
+    const key = seg.dataset.key;
+    seg.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-checked', String(String(cfg[key]) === b.dataset.v)); });
+  });
+  $('#levelGrp').hidden = cfg.mode !== 'cpu';
+}
+document.querySelectorAll('.seg').forEach(function(seg){
+  seg.addEventListener('click', function(e){
+    const b = e.target.closest('button');
+    if(!b) return;
+    const key = seg.dataset.key;
+    cfg[key] = key === 'first' ? +b.dataset.v : b.dataset.v;
+    store.set('cfg', cfg);
+    syncSeg();
+    if(key === 'level'){
+      S.level = cfg.level; updateUI(); showRecord();
+    }else if(S.moves === 0){
+      newGame();
+    }else{
+      $('#note').textContent = 'Applies to your next game.';
+    }
+  });
+});
+$('#newBtn').addEventListener('click', newGame);
+$('#again').addEventListener('click', newGame);
+$('#undoBtn').addEventListener('click', undo);
+$('#hintBtn').addEventListener('click', hint);
+function syncSound(){ const b = $('#soundBtn'); b.textContent = sound.on ? 'Sound on' : 'Sound off'; b.setAttribute('aria-pressed', String(sound.on)); }
+$('#soundBtn').addEventListener('click', function(){ sound.on = !sound.on; store.set('sound', sound.on); syncSound(); if(sound.on){ sound.init(); sound.pick(); } });
+
+syncSeg(); syncSound(); newGame();
+})();
+</script>
+</body>
+</html>

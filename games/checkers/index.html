@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d5a5a">
+<title>Checkers</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, square board, action row.
+   Landscape (iPad sideways) = board on the left filling the height, side rail on the right. */
+:root{
+  --bg1:#139090; --bg2:#08343f;
+  --muted:#b9e6e1; --panel:rgba(0,30,35,.35); --line:rgba(185,230,225,.28);
+  --accent:#ffd23f; --accent-2:#e9a800; --accent-ink:#3a2300;
+  --light:#fbe9c6; --dark:#2a8a5e; --dark-2:#1f6f4b;
+  --red-hi:#ff7b84; --red:#ef3b45; --red-lo:#a81e2a;
+  --blk-hi:#5b5d74; --blk:#2b2c3d; --blk-lo:#121320;
+}
+.page{height:100%;display:grid;gap:12px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"top" "players" "status" "board" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.status{grid-area:status}
+.boardArea{grid-area:board;display:flex;align-items:center;justify-content:center;min-height:0;container-type:size}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(260px,30vw,340px);
+    grid-template-rows:auto auto auto minmax(0,1fr);
+    grid-template-areas:"board top" "board players" "board status" "board actions"}
+  .players{grid-template-columns:1fr}
+  .actions{align-content:start;justify-content:stretch}
+  .actions .btn{flex:1}
+}
+
+.board{
+  --size:min(100cqw,100cqh);
+  width:var(--size);height:var(--size);position:relative;border-radius:14px;
+  padding:calc(var(--size) * .025);
+  background:linear-gradient(145deg,#ffcf4a,#f29d00);
+  box-shadow:0 18px 40px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.5), inset 0 -4px 0 rgba(0,0,0,.2);
+}
+.squares{position:relative;width:100%;height:100%;display:grid;grid-template:repeat(8,1fr)/repeat(8,1fr);border-radius:6px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.sq{background:var(--light);position:relative;border:none;padding:0}
+.sq.d{background:linear-gradient(145deg,var(--dark),var(--dark-2))}
+.sq.can::after{content:"";position:absolute;inset:34%;border-radius:50%;background:rgba(255,210,63,.9);box-shadow:0 0 0 4px rgba(255,210,63,.35);animation:pulse 1.1s ease-in-out infinite}
+.sq.last{box-shadow:inset 0 0 0 3px rgba(255,210,63,.55)}
+@keyframes pulse{50%{transform:scale(.8);opacity:.75}}
+.pieces{position:absolute;inset:calc(var(--size) * .025);pointer-events:none}
+.pc{
+  position:absolute;width:12.5%;height:12.5%;padding:1.2%;
+  transition:left .22s cubic-bezier(.3,.8,.3,1), top .22s cubic-bezier(.3,.8,.3,1), opacity .3s, transform .3s;
+}
+.pc i{display:block;width:100%;height:100%;border-radius:50%;position:relative;
+  box-shadow:0 5px 0 var(--lo), 0 8px 12px rgba(0,0,0,.4);
+  background:radial-gradient(circle at 50% 50%, transparent 52%, rgba(0,0,0,.18) 53%, transparent 58%, transparent 66%, rgba(255,255,255,.18) 67%, transparent 72%), linear-gradient(160deg,var(--hi),var(--c) 55%,var(--lo));
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.pc.r{--hi:var(--red-hi);--c:var(--red);--lo:var(--red-lo)}
+.pc.b{--hi:var(--blk-hi);--c:var(--blk);--lo:var(--blk-lo)}
+.pc.k i::after{content:"♛";position:absolute;inset:0;display:grid;place-items:center;color:var(--accent);font-size:calc(var(--size) * .055);line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.pc.sel i{transform:translateY(-6%) scale(1.08);box-shadow:0 0 0 4px var(--accent), 0 9px 0 var(--lo), 0 14px 18px rgba(0,0,0,.45)}
+.pc.mov i{box-shadow:0 0 0 3px rgba(255,210,63,.75), 0 5px 0 var(--lo), 0 8px 12px rgba(0,0,0,.4)}
+.pc.gone{opacity:0;transform:scale(.4)}
+.pc.lift{z-index:5}
+.pc.lift i{transform:scale(1.12)}
+.pc.crown i{animation:crown .6s cubic-bezier(.3,1.6,.5,1)}
+@keyframes crown{0%{transform:scale(1)}40%{transform:scale(1.3) rotate(-10deg)}100%{transform:none}}
+.swatch.r{background:linear-gradient(160deg,var(--red-hi),var(--red) 55%,var(--red-lo))}
+.swatch.b{background:linear-gradient(160deg,var(--blk-hi),var(--blk) 55%,var(--blk-lo))}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion: reduce){ .pc{transition:none} .sq.can::after,.pc.crown i{animation:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">CHECKERS</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" aria-label="Players">
+    <div class="pcard" id="card1"><span class="swatch b"></span><div class="who"><div class="nm" id="name1">Computer</div><div class="sub" id="sub1">Black</div></div><div class="num" id="num1">12</div></div>
+    <div class="pcard" id="card0"><span class="swatch r"></span><div class="who"><div class="nm" id="name0">You</div><div class="sub" id="sub0">Red</div></div><div class="num" id="num0">12</div></div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="boardArea">
+    <div class="board" id="board">
+      <div class="squares" id="squares"></div>
+      <div class="pieces" id="pieces"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn" id="btnUndo" type="button">Undo</button>
+    <button class="btn" id="btnHint" type="button">Hint</button>
+    <button class="btn primary" id="btnNew" type="button">New game</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New game</h2>
+    <p class="sub">Red sits at the bottom. Hand the iPad across for a friend, or take on the computer.</p>
+    <h4>Opponent</h4>
+    <div class="seg" id="segMode"><button type="button" data-v="cpu">Computer</button><button type="button" data-v="2p">Friend</button></div>
+    <div id="levelWrap">
+      <h4>Difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <h4>First move</h4>
+    <div class="seg" id="segFirst"><button type="button" data-v="0">Red</button><button type="button" data-v="1">Black</button></div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>Pieces move one square diagonally forward onto a dark square.</li>
+      <li>Jump over an opponent's piece into the empty square beyond to capture it. If another jump is available from there, keep going.</li>
+      <li><b>Captures are required.</b> If you can jump, you must. Pieces that can capture glow when you have to.</li>
+      <li>Reach the far row and your piece is crowned a <b>King</b>. Kings move and jump backward too.</li>
+      <li>Win by capturing every opposing piece or leaving your opponent with no legal move.</li>
+      <li>40 moves each with no capture and no plain piece moving is a draw.</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('checkers');
+
+/* ---------- Engine ----------
+   Board: 64 squares, index = row*8 + col, row 0 at the top.
+   Side 0 (red) sits at the bottom and moves up; side 1 (black) moves down.
+   Values: 0 empty, 1 red man, 2 red king, -1 black man, -2 black king. */
+const sgn = side => side === 0 ? 1 : -1;
+const isDark = i => ((i >> 3) + (i & 7)) % 2 === 1;
+
+function initial(){
+  const b = new Array(64).fill(0);
+  for (let i = 0; i < 64; i++){
+    if (!isDark(i)) continue;
+    const r = i >> 3;
+    if (r < 3) b[i] = -1; else if (r > 4) b[i] = 1;
+  }
+  return b;
+}
+function dirsFor(v){
+  const k = Math.abs(v) === 2;
+  if (k) return [[-1,-1],[-1,1],[1,-1],[1,1]];
+  return v > 0 ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]];
+}
+const at = (r, c) => (r < 0 || r > 7 || c < 0 || c > 7) ? -1 : r * 8 + c;
+const crownRow = v => v > 0 ? 0 : 7;
+
+/* A move: {from, path:[landing squares], caps:[captured squares], crown} */
+function jumpsFrom(b, from, v){
+  const out = [];
+  (function dfs(sq, path, caps){
+    let extended = false;
+    const r = sq >> 3, c = sq & 7;
+    for (const [dr, dc] of dirsFor(v)){
+      const mid = at(r + dr, c + dc), land = at(r + 2 * dr, c + 2 * dc);
+      if (mid < 0 || land < 0) continue;
+      if (b[mid] === 0 || Math.sign(b[mid]) === Math.sign(v) || caps.includes(mid)) continue;
+      if (b[land] !== 0 && land !== from) continue;
+      extended = true;
+      const p2 = path.concat(land), c2 = caps.concat(mid);
+      // a man that reaches the far row is crowned and the move ends there
+      if (Math.abs(v) === 1 && (land >> 3) === crownRow(v)) out.push({from, path: p2, caps: c2, crown: true});
+      else dfs(land, p2, c2);
+    }
+    if (!extended && path.length) out.push({from, path, caps, crown: false});
+  })(from, [], []);
+  return out;
+}
+function legalMoves(b, side){
+  const s = sgn(side), jumps = [], steps = [];
+  for (let i = 0; i < 64; i++){
+    const v = b[i];
+    if (!v || Math.sign(v) !== s) continue;
+    jumps.push(...jumpsFrom(b, i, v));
+    if (jumps.length) continue;
+    const r = i >> 3, c = i & 7;
+    for (const [dr, dc] of dirsFor(v)){
+      const to = at(r + dr, c + dc);
+      if (to >= 0 && b[to] === 0) steps.push({from: i, path: [to], caps: [], crown: Math.abs(v) === 1 && (to >> 3) === crownRow(v)});
+    }
+  }
+  return jumps.length ? jumps : steps;
+}
+function apply(b, m){
+  const nb = b.slice();
+  let v = nb[m.from]; nb[m.from] = 0;
+  for (const c of m.caps) nb[c] = 0;
+  if (m.crown) v = Math.sign(v) * 2;
+  nb[m.path[m.path.length - 1]] = v;
+  return nb;
+}
+function count(b, side){ const s = sgn(side); let n = 0; for (const v of b) if (v && Math.sign(v) === s) n++; return n; }
+
+/* Static evaluation from red's (side 0) point of view. */
+function evaluate(b){
+  let sc = 0, red = 0, blk = 0;
+  for (let i = 0; i < 64; i++){
+    const v = b[i]; if (!v) continue;
+    const r = i >> 3, c = i & 7;
+    const king = Math.abs(v) === 2;
+    let val = king ? 165 : 100;
+    if (!king) val += (v > 0 ? 7 - r : r) * 4;            // advancement
+    if (c >= 2 && c <= 5 && r >= 2 && r <= 5) val += 6;    // centre
+    if (!king && (v > 0 ? r === 7 : r === 0)) val += 8;    // back row guard
+    if (c === 0 || c === 7) val -= 4;
+    if (v > 0){ sc += val; red++; } else { sc -= val; blk++; }
+  }
+  // when ahead, trade down
+  if (red > blk) sc += (24 - red - blk) * 3; else if (blk > red) sc -= (24 - red - blk) * 3;
+  return sc;
+}
+
+let deadline = 0, aborted = false, nodes = 0;
+function negamax(b, side, depth, alpha, beta){
+  if ((++nodes & 1023) === 0 && performance.now() > deadline) aborted = true;
+  if (aborted) return 0;
+  const moves = legalMoves(b, side);
+  if (!moves.length) return -100000 - depth;
+  // extend forced captures so the search doesn't stop mid-exchange
+  if (depth <= 0 && !(moves[0].caps.length && depth > -4)) return sgn(side) * evaluate(b);
+  moves.sort((x, y) => y.caps.length - x.caps.length);
+  let best = -Infinity;
+  for (const m of moves){
+    const v = -negamax(apply(b, m), 1 - side, depth - 1, -beta, -alpha);
+    if (v > best) best = v;
+    if (v > alpha) alpha = v;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+function choose(b, side, level){
+  const moves = legalMoves(b, side);
+  if (moves.length === 1) return moves[0];
+  if (level === 'easy' && Math.random() < 0.4) return moves[Math.floor(Math.random() * moves.length)];
+  const maxD = level === 'easy' ? 2 : level === 'medium' ? 4 : 14;
+  deadline = performance.now() + (level === 'hard' ? 900 : 400);
+  aborted = false; nodes = 0;
+  // shuffle so equal moves vary between games (adding noise to alpha-beta bounds would pick worse moves)
+  for (let i = moves.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [moves[i], moves[j]] = [moves[j], moves[i]]; }
+  let pick = moves[0];
+  for (let d = 1; d <= maxD; d++){
+    let bestV = -Infinity, bestM = null, alpha = -Infinity;
+    const order = moves.slice().sort((x, y) => (y === pick) - (x === pick));
+    for (const m of order){
+      const v = -negamax(apply(b, m), 1 - side, d - 1, -Infinity, -alpha);
+      if (aborted) break;
+      if (v > bestV){ bestV = v; bestM = m; }
+      if (v > alpha) alpha = v;
+    }
+    if (aborted) break;
+    pick = bestM;
+    if (Math.abs(bestV) > 90000) break;
+  }
+  return pick;
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium', first: 0}, store.get('cfg', {}));
+let S = null;      // {board, turn, quiet, over, history, last}
+let ids = [];      // piece element id on each square
+let sel = -1, partial = [], busy = false, gen = 0, hintMove = null;
+
+const isCpu = side => S.mode === 'cpu' && side === 1;
+const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['Player 1', 'Player 2'];
+
+/* ---------- DOM ---------- */
+const squaresEl = $('squares'), piecesEl = $('pieces');
+const sqEls = [];
+for (let i = 0; i < 64; i++){
+  const el = document.createElement(isDark(i) ? 'button' : 'div');
+  el.className = 'sq' + (isDark(i) ? ' d' : '');
+  if (isDark(i)){ el.type = 'button'; el.dataset.i = i; }
+  squaresEl.appendChild(el); sqEls.push(el);
+}
+const pieceEls = new Map(); let nextId = 1;
+function pos(el, i){ el.style.left = ((i & 7) * 12.5) + '%'; el.style.top = ((i >> 3) * 12.5) + '%'; }
+function buildPieces(){
+  piecesEl.innerHTML = ''; pieceEls.clear(); ids = new Array(64).fill(0);
+  S.board.forEach((v, i) => {
+    if (!v) return;
+    const el = document.createElement('div'); el.innerHTML = '<i></i>';
+    const id = nextId++; pieceEls.set(id, el); ids[i] = id;
+    pos(el, i); piecesEl.appendChild(el);
+  });
+}
+
+function save(){ store.set('game', S); }
+
+function render(){
+  // pieces
+  const moves = (!S.over && !busy && !isCpu(S.turn)) ? legalMoves(S.board, S.turn) : [];
+  const movable = new Set(moves.map(m => m.from));
+  const mustJump = moves.length && moves[0].caps.length;
+  S.board.forEach((v, i) => {
+    const el = pieceEls.get(ids[i]); if (!el) return;
+    el.className = 'pc ' + (v > 0 ? 'r' : 'b') + (Math.abs(v) === 2 ? ' k' : '') + (i === sel ? ' sel' : '') + (mustJump && movable.has(i) && i !== sel ? ' mov' : '') + (hintMove && hintMove.from === i ? ' sel' : '');
+  });
+  // targets
+  const targets = new Set();
+  if (sel >= 0) moves.filter(m => m.from === sel && partial.every((p, k) => m.path[k] === p)).forEach(m => targets.add(m.path[partial.length]));
+  if (hintMove) targets.add(hintMove.path[0]);
+  sqEls.forEach((el, i) => {
+    el.classList.toggle('can', targets.has(i));
+    el.classList.toggle('last', !!S.last && (S.last.from === i || S.last.to === i));
+    if (isDark(i)){
+      const v = S.board[i];
+      el.setAttribute('aria-label', 'Row ' + (8 - (i >> 3)) + ' column ' + ((i & 7) + 1) + (v ? (v > 0 ? ', red' : ', black') + (Math.abs(v) === 2 ? ' king' : '') : ', empty') + (targets.has(i) ? ', move here' : ''));
+    }
+  });
+  // cards + status
+  const n = names();
+  $('name0').textContent = n[0]; $('name1').textContent = n[1];
+  $('sub1').textContent = S.mode === 'cpu' ? 'Black · ' + S.level : 'Black';
+  $('num0').textContent = count(S.board, 0); $('num1').textContent = count(S.board, 1);
+  $('card0').classList.toggle('on', !S.over && S.turn === 0);
+  $('card1').classList.toggle('on', !S.over && S.turn === 1);
+  const st = $('status');
+  st.classList.remove('thinking');
+  if (S.over) st.textContent = S.over.text;
+  else if (isCpu(S.turn)){ st.textContent = 'Computer is thinking'; st.classList.add('thinking'); }
+  else {
+    const who = S.mode === 'cpu' ? 'Your move' : n[S.turn] + "'s move";
+    st.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = who; st.appendChild(b);
+    if (partial.length) st.append(' · keep jumping');
+    else if (mustJump) st.append(' · you must capture');
+  }
+  $('btnUndo').disabled = busy || !S.history.length;
+  $('btnHint').disabled = busy || !!S.over || isCpu(S.turn);
+}
+
+/* Animate a move along its path, then commit it. */
+async function play(m, fromIndex){
+  const my = gen;
+  busy = true; hintMove = null;
+  const id = ids[m.from], el = pieceEls.get(id);
+  el.classList.add('lift');
+  for (let k = fromIndex || 0; k < m.path.length; k++){
+    const to = m.path[k];
+    pos(el, to);
+    if (m.caps[k] !== undefined){
+      const cel = pieceEls.get(ids[m.caps[k]]);
+      setTimeout(() => cel && cel.classList.add('gone'), 120);
+      sound.capture();
+    } else sound.place();
+    await sleep(260);
+    if (my !== gen) return;
+  }
+  el.classList.remove('lift');
+  // commit
+  const before = S.board;
+  S.board = apply(before, m);
+  const to = m.path[m.path.length - 1];
+  for (const c of m.caps){ const ce = pieceEls.get(ids[c]); if (ce) ce.remove(); pieceEls.delete(ids[c]); ids[c] = 0; }
+  ids[to] = id; if (to !== m.from) ids[m.from] = 0;
+  const wasMan = Math.abs(before[m.from]) === 1;
+  S.quiet = (m.caps.length || wasMan) ? 0 : S.quiet + 1;
+  S.last = {from: m.from, to};
+  if (m.crown){ el.classList.add('k', 'crown'); sound.good(); callout('KING ME!'); }
+  else if (m.caps.length > 1) callout(m.caps.length === 2 ? 'DOUBLE JUMP!' : m.caps.length + 'X JUMP!');
+  S.turn = 1 - S.turn;
+  sel = -1; partial = [];
+  busy = false;
+  checkOver();
+  save(); render();
+  if (!S.over) maybeCpu();
+}
+
+function checkOver(){
+  if (!legalMoves(S.board, S.turn).length){
+    const winner = 1 - S.turn;
+    S.over = {winner, text: names()[winner] + (S.mode === 'cpu' && winner === 0 ? ' win!' : ' wins!')};
+  } else if (S.quiet >= 80){
+    S.over = {winner: -1, text: 'Draw'};
+  }
+  if (S.over) showOver();
+}
+function showOver(){
+  const w = S.over.winner, n = names();
+  $('overTitle').textContent = w < 0 ? 'Draw' : (S.mode === 'cpu' ? (w === 0 ? 'You win!' : 'Computer wins') : n[w] + ' wins!');
+  $('overSub').textContent = w < 0 ? 'Forty quiet moves each. Nobody could break through.' :
+    (S.mode === 'cpu' && w === 1 ? 'Shake it off and try again.' : (w === 0 ? 'Red' : 'Black') + ' takes the board with ' + count(S.board, w) + ' pieces left.');
+  if (S.mode === 'cpu'){
+    const rec = store.get('rec', {}); const r = rec[S.level] || {w: 0, l: 0, d: 0};
+    if (w === 0) r.w++; else if (w === 1) r.l++; else r.d++;
+    rec[S.level] = r; store.set('rec', rec);
+    $('overSub').textContent += ' Record vs ' + S.level + ': ' + r.w + 'W · ' + r.l + 'L · ' + r.d + 'D.';
+  }
+  setTimeout(() => {
+    $('overBox').hidden = false;
+    if (w >= 0 && !(S.mode === 'cpu' && w === 1)){ sound.win(); confetti(['#ef3b45', '#ffd23f', '#fbe9c6', '#2a8a5e', '#ffffff']); } else sound.bad();
+  }, 700);
+}
+
+async function maybeCpu(){
+  if (!S || S.over || !isCpu(S.turn)) return;
+  const my = gen;
+  busy = true; render();
+  await sleep(450);
+  const m = choose(S.board, 1, S.level);
+  await sleep(250);
+  if (my !== gen) return;
+  busy = false;
+  play(m);
+}
+
+/* ---------- Input ---------- */
+squaresEl.addEventListener('click', e => {
+  const t = e.target.closest('.sq.d'); if (!t) return;
+  tap(+t.dataset.i);
+});
+function tap(i){
+  if (!S || S.over || busy || isCpu(S.turn)) return;
+  hintMove = null;
+  const moves = legalMoves(S.board, S.turn);
+  const v = S.board[i];
+  if (!partial.length && v && Math.sign(v) === sgn(S.turn)){
+    if (moves.some(m => m.from === i)){ sel = sel === i ? -1 : i; sound.click(); }
+    else { sel = -1; if (moves[0] && moves[0].caps.length) callout('MUST JUMP'); }
+    render(); return;
+  }
+  if (sel < 0) return;
+  const cands = moves.filter(m => m.from === sel && partial.every((p, k) => m.path[k] === p) && m.path[partial.length] === i);
+  if (!cands.length){ if (!partial.length){ sel = -1; render(); } return; }
+  const done = cands.find(m => m.path.length === partial.length + 1);
+  if (!partial.length) S.history.push({board: S.board.slice(), turn: S.turn, quiet: S.quiet, last: S.last});
+  if (done && cands.length === 1){ const start = partial.length; partial = []; play(done, start); return; }
+  // branching multi-jump: step the piece and wait for the next tap
+  const el = pieceEls.get(ids[sel]);
+  pos(el, i);
+  const capSq = cands[0].caps[partial.length];
+  const cel = pieceEls.get(ids[capSq]); if (cel) cel.classList.add('gone');
+  sound.capture();
+  partial.push(i);
+  render();
+}
+
+/* ---------- Lifecycle ---------- */
+function newGame(){
+  gen++; stopConfetti();
+  S = {board: initial(), turn: +cfg.first, quiet: 0, over: null, history: [], last: null, mode: cfg.mode, level: cfg.level};
+  sel = -1; partial = []; busy = false; hintMove = null;
+  $('overBox').hidden = true;
+  buildPieces(); save(); render(); maybeCpu();
+}
+function undo(){
+  if (busy || !S.history.length) return;
+  gen++;
+  const h = S.history.pop();
+  Object.assign(S, {board: h.board, turn: h.turn, quiet: h.quiet, last: h.last, over: null});
+  sel = -1; partial = []; hintMove = null;
+  $('overBox').hidden = true;
+  buildPieces(); save(); render(); maybeCpu();
+}
+
+$('btnUndo').addEventListener('click', undo);
+$('btnHint').addEventListener('click', () => {
+  if (busy || S.over || isCpu(S.turn)) return;
+  sel = -1; partial = [];
+  hintMove = choose(S.board, S.turn, 'medium'); render();
+  setTimeout(() => { hintMove = null; render(); }, 2500);
+});
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newGame(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnAgain').addEventListener('click', newGame);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+
+const syncers = [
+  seg($('segMode'), () => cfg.mode, v => { cfg.mode = v; $('levelWrap').hidden = v !== 'cpu'; }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v),
+  seg($('segFirst'), () => cfg.first, v => cfg.first = +v)
+];
+function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
+
+/* ---------- Boot ---------- */
+const saved = store.get('game', null);
+if (saved && saved.board && saved.board.length === 64 && !saved.over){
+  S = saved; S.history = S.history || [];
+  buildPieces(); render(); maybeCpu();
+} else {
+  S = {board: initial(), turn: 0, quiet: 0, over: null, history: [], last: null, mode: cfg.mode, level: cfg.level};
+  buildPieces(); render();
+  syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>

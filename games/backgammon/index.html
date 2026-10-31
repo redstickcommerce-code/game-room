@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#3a1478">
+<title>Backgammon</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, board (turned sideways so it fills a tall screen), action row.
+   Landscape = board on the left at full height, side rail on the right. */
+:root{
+  --bg1:#7a2fd0; --bg2:#260d57;
+  --muted:#d9c8ff; --panel:rgba(20,0,60,.35); --line:rgba(217,200,255,.28);
+  --accent:#c6f432; --accent-2:#8dc214; --accent-ink:#1d2b00;
+}
+.page{height:100%;display:grid;gap:10px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto;
+  grid-template-areas:"top" "players" "status" "board" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.status{grid-area:status}
+.boardArea{grid-area:board;min-height:0;display:flex;align-items:center;justify-content:center}
+.boardArea svg{width:100%;height:100%;display:block;filter:drop-shadow(0 18px 30px rgba(0,0,0,.45))}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center}
+.actions .btn{flex:1;max-width:220px}
+.actions #btnMain{flex:2}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(250px,27vw,320px);
+    grid-template-rows:auto auto auto minmax(0,1fr);
+    grid-template-areas:"board top" "board players" "board status" "board actions"}
+  .players{grid-template-columns:1fr}
+  .actions{flex-direction:column;justify-content:flex-start}
+  .actions .btn,.actions #btnMain{flex:none;max-width:none}
+}
+.swatch.w{background:radial-gradient(circle at 40% 35%,#fff,#f5e6c8 70%,#c9a978)}
+.swatch.k{background:radial-gradient(circle at 40% 35%,#6b4fb0,#33215c 70%,#160b33)}
+
+/* SVG pieces */
+.hl{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.hit{fill:transparent;cursor:pointer}
+@media (prefers-reduced-motion: reduce){ .hl{animation:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">BACKGAMMON</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" aria-label="Players">
+    <div class="pcard" id="card1"><span class="swatch k"></span><div class="who"><div class="nm" id="name1">Computer</div><div class="sub" id="sub1"></div></div><div class="num" id="score1" title="Match points">0</div></div>
+    <div class="pcard" id="card0"><span class="swatch w"></span><div class="who"><div class="nm" id="name0">You</div><div class="sub" id="sub0"></div></div><div class="num" id="score0" title="Match points">0</div></div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="boardArea" id="boardArea">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Backgammon board"></svg>
+  </div>
+
+  <div class="actions">
+    <button class="btn" id="btnUndo" type="button">Undo</button>
+    <button class="btn" id="btnNew" type="button">New</button>
+    <button class="btn primary" id="btnMain" type="button">ROLL</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New match</h2>
+    <p class="sub">You play White, bearing off at the bottom right. Play the computer, or pass the iPad to a friend.</p>
+    <h4>Opponent</h4>
+    <div class="seg" id="segMode"><button type="button" data-v="cpu">Computer</button><button type="button" data-v="2p">Friend</button></div>
+    <div id="levelWrap">
+      <h4>Difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>Race all 15 of your checkers around the board into your home (the six points at the bottom right for White), then bear them off. First to bear off all 15 wins.</li>
+      <li>Roll two dice. Each die is a separate move. Doubles play four times.</li>
+      <li>Tap a checker, then tap one of the glowing points to move it. You can't land on a point holding two or more of your opponent's checkers.</li>
+      <li>Land on a lone opposing checker (a <b>blot</b>) to hit it onto the bar. A checker on the bar must come back in through the opponent's home before anything else can move.</li>
+      <li>You must use both dice if you can. If only one can be played, you must play the larger one if possible.</li>
+      <li>Once all your checkers are home, move them onto the tray to bear off. A die bigger than needed can bear off your farthest checker.</li>
+      <li>Win before your opponent bears any off for a <b>gammon</b> (2 points). If they also still have a checker on the bar or in your home, it's a <b>backgammon</b> (3 points).</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <button class="btn primary big go" id="btnNext" type="button">NEXT GAME</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">New match</button>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg, RM} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('backgammon');
+
+/* ---------- Engine ----------
+   pts[1..24]: positive = White (side 0), negative = Black (side 1).
+   White moves 24 -> 1 and bears off from 1-6. Black moves 1 -> 24 and bears off from 19-24.
+   A single move is {from, to, d}; from may be 'bar', to may be 'off'. */
+const BAR = 'bar', OFF = 'off';
+const sgn = side => side === 0 ? 1 : -1;
+const clone = st => ({pts: st.pts.slice(), bar: st.bar.slice(), off: st.off.slice()});
+const key = st => st.pts.join(',') + '|' + st.bar.join(',') + '|' + st.off.join(',');
+
+function initialPos(){
+  const pts = new Array(26).fill(0);
+  pts[24] = 2; pts[13] = 5; pts[8] = 3; pts[6] = 5;
+  pts[1] = -2; pts[12] = -5; pts[17] = -3; pts[19] = -5;
+  return {pts, bar: [0, 0], off: [0, 0]};
+}
+function allHome(st, side){
+  if (st.bar[side]) return false;
+  const s = sgn(side);
+  for (let p = 1; p <= 24; p++){
+    if (st.pts[p] * s > 0 && (side === 0 ? p > 6 : p < 19)) return false;
+  }
+  return true;
+}
+function singles(st, side, d){
+  const s = sgn(side), out = [];
+  const open = p => st.pts[p] * s >= -1;
+  if (st.bar[side]){
+    const to = side === 0 ? 25 - d : d;
+    if (open(to)) out.push({from: BAR, to, d});
+    return out;
+  }
+  const home = allHome(st, side);
+  for (let p = 1; p <= 24; p++){
+    if (st.pts[p] * s <= 0) continue;
+    const t = side === 0 ? p - d : p + d;
+    if (t >= 1 && t <= 24){ if (open(t)) out.push({from: p, to: t, d}); }
+    else if (home){
+      const exact = side === 0 ? t === 0 : t === 25;
+      let behind = false;
+      if (!exact){
+        if (side === 0){ for (let q = p + 1; q <= 6; q++) if (st.pts[q] > 0) behind = true; }
+        else { for (let q = 19; q < p; q++) if (st.pts[q] < 0) behind = true; }
+      }
+      if (exact || !behind) out.push({from: p, to: OFF, d});
+    }
+  }
+  return out;
+}
+function applyMove(st, side, m){
+  const n = clone(st), s = sgn(side);
+  if (m.from === BAR) n.bar[side]--; else n.pts[m.from] -= s;
+  if (m.to === OFF) n.off[side]++;
+  else {
+    if (n.pts[m.to] * s === -1){ n.pts[m.to] = 0; n.bar[1 - side]++; }
+    n.pts[m.to] += s;
+  }
+  return n;
+}
+const isHit = (st, side, m) => m.to !== OFF && st.pts[m.to] * sgn(side) === -1;
+const distinct = R => [...new Set(R)];
+const without = (R, d) => { const i = R.indexOf(d), c = R.slice(); c.splice(i, 1); return c; };
+
+function maxMoves(st, side, R, memo){
+  if (!R.length) return 0;
+  const k = key(st) + '#' + R.join('');
+  if (memo.has(k)) return memo.get(k);
+  let best = 0;
+  outer: for (const d of distinct(R)){
+    const rest = without(R, d);
+    for (const m of singles(st, side, d)){
+      const v = 1 + maxMoves(applyMove(st, side, m), side, rest, memo);
+      if (v > best) best = v;
+      if (best === R.length) break outer;
+    }
+  }
+  memo.set(k, best);
+  return best;
+}
+/* Moves playable right now, given that the turn must use `need` more dice in total. */
+function legalNow(st, side, R, need, total, diceAll){
+  if (need <= 0) return [];
+  const memo = new Map(), out = [];
+  for (const d of distinct(R)){
+    const rest = without(R, d);
+    for (const m of singles(st, side, d)){
+      if (1 + maxMoves(applyMove(st, side, m), side, rest, memo) === need) out.push(m);
+    }
+  }
+  if (total === 1 && diceAll.length === 2 && diceAll[0] !== diceAll[1] && R.length === 2){
+    const hi = Math.max(...R);
+    if (out.some(m => m.d === hi)) return out.filter(m => m.d === hi);
+  }
+  return out;
+}
+/* Every distinct end position for a full turn, with one move sequence reaching it. */
+function allPlays(st, side, dice){
+  const total = maxMoves(st, side, dice, new Map());
+  const out = new Map();
+  if (!total) return [];
+  // if only one die can be played, it must be the larger one when possible
+  let start = dice;
+  if (total === 1 && dice.length === 2 && dice[0] !== dice[1]){
+    const hi = Math.max(...dice), lo = Math.min(...dice);
+    start = singles(st, side, hi).length ? [hi] : [lo];
+  }
+  const seen = new Set();
+  (function rec(cur, R, seq){
+    if (seq.length === total){ const k = key(cur); if (!out.has(k)) out.set(k, {seq, st: cur}); return; }
+    const vk = key(cur) + '#' + R.join('');
+    if (seen.has(vk)) return; seen.add(vk);
+    for (const d of distinct(R)) for (const m of singles(cur, side, d)) rec(applyMove(cur, side, m), without(R, d), seq.concat(m));
+  })(st, start, []);
+  return [...out.values()];
+}
+function pipCount(st, side){
+  let n = st.bar[side] * 25;
+  for (let p = 1; p <= 24; p++){
+    const v = st.pts[p] * sgn(side);
+    if (v > 0) n += v * (side === 0 ? p : 25 - p);
+  }
+  return n;
+}
+
+/* ---------- Computer player ---------- */
+const HITP = [0, 11, 12, 14, 15, 15, 17, 6, 6, 5, 3, 2, 3]; // ways out of 36 to hit at distance d
+function evaluate(st, side){
+  const s = sgn(side), o = 1 - side;
+  const P = r => st.pts[side === 0 ? r : 25 - r] * s;   // my-relative view: r=1 is my deepest home point
+  let myPip = st.bar[side] * 25, opPip = st.bar[o] * 25, myMax = st.bar[side] ? 25 : 0, opMin = st.bar[o] ? 0 : 26;
+  for (let r = 1; r <= 24; r++){
+    const v = P(r);
+    if (v > 0){ myPip += v * r; if (r > myMax) myMax = r; }
+    else if (v < 0){ opPip += -v * (25 - r); if (r < opMin) opMin = r; }
+  }
+  if (myMax < opMin) return (opPip - myPip) * 2 + st.off[side] * 2;   // pure race
+  let sc = (opPip - myPip) * 0.9;
+  let run = 0, bestRun = 0, homeMade = 0;
+  for (let r = 1; r <= 24; r++){
+    const v = P(r);
+    if (v >= 2){
+      sc += 2;
+      if (r <= 6){ sc += 4; homeMade++; }
+      if (r >= 4 && r <= 7) sc += 3;
+      if (r >= 18) sc += 2.5;
+      if (v > 3) sc -= (v - 3) * 1.2;
+      run++; if (run > bestRun) bestRun = run;
+    } else run = 0;
+    if (v === 1){
+      let shots = 0;
+      for (let d = 1; d <= 12; d++){
+        const q = r - d; if (q < 0) break;
+        const opp = q === 0 ? st.bar[o] : Math.max(0, -P(q));
+        if (opp) shots += HITP[d];
+      }
+      sc -= Math.min(shots, 30) / 36 * (8 + (25 - r) * 0.6);
+    }
+  }
+  if (bestRun >= 3) sc += (bestRun - 2) * (bestRun - 2) * 4;
+  sc += st.bar[o] * (6 + homeMade * 2);
+  sc -= st.bar[side] * 6;
+  sc += st.off[side] * 1.5;
+  return sc;
+}
+const ROLLS = []; for (let a = 1; a <= 6; a++) for (let b = a; b <= 6; b++) ROLLS.push({dice: a === b ? [a, a, a, a] : [a, b], w: a === b ? 1 : 2});
+function choosePlay(st, side, dice, level){
+  const plays = allPlays(st, side, dice);
+  if (plays.length <= 1) return plays[0];
+  if (level === 'easy' && Math.random() < 0.45) return plays[Math.floor(Math.random() * plays.length)];
+  plays.forEach(p => p.v = evaluate(p.st, side) + (level === 'easy' ? Math.random() * 12 : 0));
+  plays.sort((a, b) => b.v - a.v);
+  if (level !== 'hard') return plays[0];
+  // look one roll ahead: how does each top candidate hold up against the opponent's best reply?
+  const o = 1 - side, cands = plays.slice(0, 6), t0 = performance.now();
+  for (const c of cands){
+    let sum = 0, wt = 0;
+    for (const r of ROLLS){
+      const replies = allPlays(c.st, o, r.dice);
+      let worst = evaluate(c.st, side);
+      if (replies.length){
+        let bv = -Infinity, bs = null;
+        for (const rp of replies){ const v = evaluate(rp.st, o); if (v > bv){ bv = v; bs = rp.st; } }
+        worst = evaluate(bs, side);
+      }
+      sum += worst * r.w; wt += r.w;
+    }
+    c.v2 = sum / wt;
+    if (performance.now() - t0 > 1500) break;
+  }
+  cands.sort((a, b) => (b.v2 ?? -1e9) - (a.v2 ?? -1e9));
+  return cands[0];
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium'}, store.get('cfg', {}));
+let S = null;
+/* S: {st, turn, phase:'opening'|'roll'|'move'|'done'|'over', dice:[{v,used}], total, stack:[], opening:[a,b]|null,
+       score:[a,b], mode, level, last:[moves of previous turn]} */
+let sel = null, busy = false, gen = 0, rolling = null, portrait = false, flyers = [], hidden = [];
+const isCpu = side => S.mode === 'cpu' && side === 1;
+const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['White', 'Black'];
+const remaining = () => S.dice.filter(d => !d.used).map(d => d.v);
+const usedCount = () => S.dice.filter(d => d.used).length;
+function legal(){
+  if (S.phase !== 'move') return [];
+  return legalNow(S.st, S.turn, remaining(), S.total - usedCount(), S.total, S.dice.map(d => d.v).slice(0, 2));
+}
+function save(){ store.set('game', S); }
+
+/* ---------- Geometry (landscape board coordinates; portrait rotates the whole group) ---------- */
+const W = 1000, H = 760, R = 30;
+const colX = col => (col < 6 ? 20 + col * 70 : 500 + (col - 6) * 70);
+const pointCol = p => p <= 12 ? 12 - p : p - 13;
+const isTop = p => p >= 13;
+const step = (n, room) => n <= 5 ? 60 : Math.min(60, room / (n - 1));
+function slot(loc, side, i, n){
+  if (loc === BAR){
+    const st = step(n, 270);
+    return {x: 470, y: side === 0 ? 380 - 40 - i * st : 380 + 40 + i * st};
+  }
+  if (loc === OFF) return {x: 960, y: side === 0 ? 740 - 12 - i * 21 : 20 + 12 + i * 21};
+  const cx = colX(pointCol(loc)) + 35, st = step(n, 290);
+  return {x: cx, y: isTop(loc) ? 20 + R + 2 + i * st : 740 - R - 2 - i * st};
+}
+function countAt(st, loc, side){
+  if (loc === BAR) return st.bar[side];
+  if (loc === OFF) return st.off[side];
+  return Math.abs(st.pts[loc]);
+}
+
+/* ---------- Rendering ---------- */
+const svg = $('svg');
+const PIPS = {1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]], 5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]]};
+function checker(side, x, y, cls){
+  const f = side === 0 ? 'url(#cw)' : 'url(#ck)', st = side === 0 ? '#b8956a' : '#12082b', ring = side === 0 ? 'rgba(170,130,80,.45)' : 'rgba(140,110,220,.45)';
+  return `<g transform="translate(${x},${y})" class="${cls || ''}"><circle r="${R}" fill="${f}" stroke="${st}" stroke-width="2.5"/><circle r="${R * .62}" fill="none" stroke="${ring}" stroke-width="2.5"/></g>`;
+}
+function slab(side, x, y){
+  return `<rect x="${x - 25}" y="${y - 9}" width="50" height="17" rx="5" fill="${side === 0 ? '#fff4e0' : '#3b2569'}" stroke="${side === 0 ? '#b8956a' : '#12082b'}" stroke-width="2"/>`;
+}
+function die(x, y, v, used, size){
+  const s = size || 56, h = s / 2;
+  let out = `<g transform="translate(${x},${y})" opacity="${used ? .3 : 1}"><rect x="${-h}" y="${-h + 4}" width="${s}" height="${s}" rx="${s * .2}" fill="#5e8a00"/><rect x="${-h}" y="${-h}" width="${s}" height="${s}" rx="${s * .2}" fill="url(#dg)" stroke="#5e8a00" stroke-width="1.5"/>`;
+  for (const [a, b] of PIPS[v]) out += `<circle cx="${a * s * .27}" cy="${b * s * .27}" r="${s * .09}" fill="#22113f"/>`;
+  return out + '</g>';
+}
+function isHidden(loc, side, i){ return hidden.some(h => h.loc === loc && h.side === side && h.i === i); }
+
+function render(){
+  const area = $('boardArea');
+  portrait = area.clientWidth < area.clientHeight * 0.95;
+  svg.setAttribute('viewBox', portrait ? `0 0 ${H} ${W}` : `0 0 ${W} ${H}`);
+  const lg = busy ? [] : legal();
+  const sources = new Set(lg.map(m => m.from));
+  const dests = new Set(sel !== null ? lg.filter(m => m.from === sel).map(m => m.to) : []);
+  let o = `<defs>
+    <radialGradient id="cw" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f7ead0"/><stop offset="1" stop-color="#d8bb8e"/></radialGradient>
+    <radialGradient id="ck" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#7a5cc4"/><stop offset=".7" stop-color="#3b2569"/><stop offset="1" stop-color="#1c0f3d"/></radialGradient>
+    <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaff9a"/><stop offset=".6" stop-color="#c6f432"/><stop offset="1" stop-color="#9fd11c"/></linearGradient>
+    <linearGradient id="fr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a1d96"/><stop offset="1" stop-color="#2a0f60"/></linearGradient>
+  </defs>`;
+  o += `<g transform="${portrait ? `translate(${H},0) rotate(90)` : ''}">`;
+  o += `<rect x="0" y="0" width="${W}" height="${H}" rx="26" fill="url(#fr)"/>`;
+  o += `<rect x="20" y="20" width="420" height="720" rx="6" fill="#fff3dc"/><rect x="500" y="20" width="420" height="720" rx="6" fill="#fff3dc"/>`;
+  o += `<rect x="930" y="20" width="60" height="355" rx="8" fill="#1d0947"/><rect x="930" y="385" width="60" height="355" rx="8" fill="#1d0947"/>`;
+  // points
+  for (let p = 1; p <= 24; p++){
+    const x = colX(pointCol(p)), top = isTop(p), col = (pointCol(p) + (top ? 0 : 1)) % 2 ? '#ff4f8b' : '#1fb5b5';
+    const tip = top ? 20 + 300 : 740 - 300, base = top ? 20 : 740;
+    o += `<polygon points="${x + 3},${base} ${x + 67},${base} ${x + 35},${tip}" fill="${col}"/>`;
+    if (dests.has(p)) o += `<polygon class="hl" points="${x + 3},${base} ${x + 67},${base} ${x + 35},${tip}" fill="#c6f432" opacity=".85"/>`;
+    const ly = top ? 12 : 752, lx = x + 35;
+    o += `<text x="${lx}" y="${ly}" font-size="13" font-family="Barlow Condensed, sans-serif" font-weight="700" fill="#cdb6ff" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${lx} ${ly})"` : ''}>${p}</text>`;
+  }
+  if (dests.has(OFF)) o += `<rect class="hl" x="930" y="${S.turn === 0 ? 385 : 20}" width="60" height="355" rx="8" fill="#c6f432" opacity=".7"/>`;
+  // checkers on points
+  for (let p = 1; p <= 24; p++){
+    const v = S.st.pts[p]; if (!v) continue;
+    const side = v > 0 ? 0 : 1, n = Math.abs(v);
+    for (let i = 0; i < n; i++){
+      if (isHidden(p, side, i)) continue;
+      const {x, y} = slot(p, side, i, n);
+      const topOne = i === n - 1;
+      o += checker(side, x, y);
+      if (topOne && sel === p) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#c6f432" stroke-width="7"/>`;
+      else if (topOne && sources.has(p) && !isCpu(S.turn)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#c6f432" stroke-width="5"/>`;
+      if (topOne && n > 5) o += `<text x="${x}" y="${y + 1}" font-size="26" font-family="Bungee, sans-serif" fill="${side === 0 ? '#3a1478' : '#fff'}" text-anchor="middle" dominant-baseline="middle"${portrait ? ` transform="rotate(-90 ${x} ${y})"` : ''}>${n}</text>`;
+    }
+  }
+  // bar
+  for (const side of [0, 1]){
+    const n = S.st.bar[side];
+    for (let i = 0; i < n; i++){
+      if (isHidden(BAR, side, i)) continue;
+      const {x, y} = slot(BAR, side, i, n);
+      o += checker(side, x, y);
+      if (i === n - 1 && sel === BAR && S.turn === side) o += `<circle cx="${x}" cy="${y}" r="${R + 3}" fill="none" stroke="#c6f432" stroke-width="7"/>`;
+      else if (i === n - 1 && sources.has(BAR) && S.turn === side && !isCpu(side)) o += `<circle class="hl" cx="${x}" cy="${y}" r="${R + 1}" fill="none" stroke="#c6f432" stroke-width="5"/>`;
+    }
+    const m = S.st.off[side];
+    for (let i = 0; i < m; i++){ if (isHidden(OFF, side, i)) continue; const {x, y} = slot(OFF, side, i, m); o += slab(side, x, y); }
+  }
+  // dice
+  const diceY = 380;
+  if (S.phase === 'opening' && S.opening){
+    o += die(710, diceY, S.opening[0], false); o += die(230, diceY, S.opening[1], false);
+  } else if (rolling){
+    const cx = rolling.side === 0 ? 710 : 230;
+    o += die(cx - 34, diceY, rolling.a, false); o += die(cx + 34, diceY, rolling.b, false);
+  } else if (S.dice.length && (S.phase === 'move' || S.phase === 'done')){
+    const cx = S.turn === 0 ? 710 : 230, n = S.dice.length, gap = n === 4 ? 58 : 68, sz = n === 4 ? 50 : 56;
+    S.dice.forEach((d, i) => { o += die(cx + (i - (n - 1) / 2) * gap, diceY, d.v, d.used, sz); });
+  }
+  o += '<g id="fly"></g>';
+  // tap targets
+  for (let p = 1; p <= 24; p++){
+    const x = colX(pointCol(p)), top = isTop(p);
+    o += `<rect class="hit" data-loc="${p}" x="${x}" y="${top ? 20 : 380}" width="70" height="360"/>`;
+  }
+  o += `<rect class="hit" data-loc="bar" x="440" y="20" width="60" height="720"/>`;
+  o += `<rect class="hit" data-loc="off" x="925" y="20" width="75" height="720"/>`;
+  o += '</g>';
+  svg.innerHTML = o;
+  renderUI();
+}
+
+function renderUI(){
+  const n = names();
+  for (const side of [0, 1]){
+    $('name' + side).textContent = n[side];
+    $('sub' + side).textContent = 'Pips ' + pipCount(S.st, side) + (S.st.off[side] ? ' · Off ' + S.st.off[side] : '') + (side === 1 && S.mode === 'cpu' ? ' · ' + S.level : '');
+    $('score' + side).textContent = S.score[side];
+    $('card' + side).classList.toggle('on', S.phase !== 'over' && S.phase !== 'opening' && S.turn === side);
+  }
+  const st = $('status'), main = $('btnMain');
+  let text = '', btn = '', enabled = false;
+  const me = S.mode === 'cpu' ? (S.turn === 0 ? 'Your' : "Computer's") : n[S.turn] + "'s";
+  if (S.phase === 'opening'){
+    text = S.opening ? (S.opening[0] === S.opening[1] ? 'Tie! Roll again' : (S.opening[0] > S.opening[1] ? n[0] : n[1]) + (S.mode === 'cpu' && S.opening[0] > S.opening[1] ? ' go first' : ' goes first')) : 'Roll to see who starts';
+    btn = 'ROLL'; enabled = !busy;
+  } else if (S.phase === 'roll'){
+    text = me + ' roll'; btn = 'ROLL'; enabled = !busy && !isCpu(S.turn);
+  } else if (S.phase === 'move'){
+    if (isCpu(S.turn)) text = 'Computer is moving';
+    else if (S.total === 0) text = 'No legal moves · passing';
+    else text = me + ' move · ' + (S.total - usedCount()) + ' to play';
+    btn = 'DONE'; enabled = false;
+  } else if (S.phase === 'done'){
+    text = isCpu(S.turn) ? 'Computer is moving' : 'Tap Done to end your turn'; btn = 'DONE'; enabled = !busy && !isCpu(S.turn);
+  } else if (S.phase === 'over'){ text = 'Game over'; btn = 'NEXT GAME'; enabled = true; }
+  st.textContent = text;
+  main.textContent = btn; main.disabled = !enabled;
+  $('btnUndo').disabled = busy || isCpu(S.turn) || !S.stack.length || S.phase === 'over';
+}
+
+/* ---------- Animation ---------- */
+function tween(el, a, b, dur){
+  return new Promise(res => {
+    if (RM){ el.setAttribute('transform', `translate(${b.x},${b.y})`); return res(); }
+    const t0 = performance.now(), lift = Math.min(60, 20 + Math.hypot(b.x - a.x, b.y - a.y) * .12);
+    (function f(t){
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.setAttribute('transform', `translate(${a.x + (b.x - a.x) * e},${a.y + (b.y - a.y) * e - Math.sin(Math.PI * k) * lift})`);
+      if (k < 1) requestAnimationFrame(f); else res();
+    })(t0);
+  });
+}
+async function animateMove(prev, side, m, next){
+  const fromN = countAt(prev, m.from, side), toN = countAt(next, m.to, side);
+  const a = slot(m.from, side, fromN - 1, fromN), b = slot(m.to, side, toN - 1, toN);
+  const jobs = [{side, a, b, loc: m.to, i: toN - 1}];
+  if (isHit(prev, side, m)){
+    const o = 1 - side, bn = next.bar[o];
+    jobs.push({side: o, a: slot(m.to, o, 0, 1), b: slot(BAR, o, bn - 1, bn), loc: BAR, i: bn - 1});
+  }
+  hidden = jobs.map(j => ({loc: j.loc, side: j.side, i: j.i}));
+  const saved = S.st; S.st = next;
+  render();
+  const fly = svg.querySelector('#fly');
+  const ps = jobs.map(j => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.innerHTML = checker(j.side, 0, 0);
+    g.setAttribute('transform', `translate(${j.a.x},${j.a.y})`);
+    fly.appendChild(g);
+    return tween(g, j.a, j.b, 340);
+  });
+  await Promise.all(ps);
+  hidden = [];
+  S.st = saved;
+}
+
+/* ---------- Turn flow ---------- */
+async function rollDice(){
+  const my = gen;
+  busy = true; sound.dice();
+  const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+  if (!RM){
+    for (let k = 0; k < 7; k++){
+      rolling = {side: S.turn, a: 1 + Math.floor(Math.random() * 6), b: 1 + Math.floor(Math.random() * 6)};
+      render(); await sleep(60);
+      if (my !== gen) return;
+    }
+  }
+  rolling = null;
+  S.dice = (a === b ? [a, a, a, a] : [a, b]).map(v => ({v, used: false}));
+  S.total = maxMoves(S.st, S.turn, S.dice.map(d => d.v), new Map());
+  S.stack = []; S.phase = 'move'; sel = null;
+  busy = false;
+  if (a === b) callout('DOUBLES!');
+  autoSelect();
+  save(); render();
+  if (S.total === 0){
+    await sleep(1700);
+    if (my !== gen) return;
+    endTurn();
+    return;
+  }
+  if (isCpu(S.turn)) cpuMove();
+}
+async function openingRoll(){
+  const my = gen;
+  busy = true; sound.dice();
+  for (let k = 0; k < (RM ? 1 : 7); k++){
+    S.opening = [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)];
+    render(); await sleep(60); if (my !== gen) return;
+  }
+  busy = false; save(); render();
+  const [a, b] = S.opening;
+  if (a === b) return;
+  busy = true; render();
+  await sleep(1300);
+  if (my !== gen) return;
+  S.turn = a > b ? 0 : 1;
+  S.dice = [a, b].map(v => ({v, used: false}));
+  S.total = maxMoves(S.st, S.turn, [a, b], new Map());
+  S.stack = []; S.phase = 'move'; S.opening = null; sel = null;
+  busy = false;
+  autoSelect(); save(); render();
+  if (isCpu(S.turn)) cpuMove();
+}
+function autoSelect(){
+  if (isCpu(S.turn)) return;
+  const lg = legal(), from = new Set(lg.map(m => m.from));
+  if (from.size === 1) sel = [...from][0];
+}
+async function doMove(m){
+  const my = gen;
+  busy = true;
+  const prev = S.st, next = applyMove(prev, S.turn, m), hit = isHit(prev, S.turn, m);
+  S.stack.push({st: prev, dice: S.dice.map(d => d.used), phase: S.phase});
+  sel = null;
+  await animateMove(prev, S.turn, m, next);
+  if (my !== gen) return;
+  S.st = next;
+  S.dice.find(d => !d.used && d.v === m.d).used = true;
+  if (hit){ sound.capture(); callout('HIT!'); } else if (m.to === OFF) sound.good(); else sound.place();
+  busy = false;
+  if (S.st.off[S.turn] === 15){ gameOver(S.turn); return; }
+  if (usedCount() >= S.total) S.phase = 'done';
+  else if (!isCpu(S.turn)){
+    // keep the same checker selected if it can keep going
+    const lg = legal();
+    if (m.to !== OFF && lg.some(x => x.from === m.to)) sel = m.to; else autoSelect();
+  }
+  save(); render();
+}
+function undo(){
+  if (busy || !S.stack.length || isCpu(S.turn)) return;
+  const h = S.stack.pop();
+  S.st = h.st; S.dice.forEach((d, i) => d.used = h.dice[i]); S.phase = h.phase;
+  sel = null; autoSelect(); sound.click(); save(); render();
+}
+function endTurn(){
+  S.turn = 1 - S.turn; S.phase = 'roll'; S.dice = []; S.stack = []; S.total = 0; sel = null;
+  save(); render();
+  if (isCpu(S.turn)) setTimeout(() => { if (S.phase === 'roll' && isCpu(S.turn)) rollDice(); }, 700);
+}
+async function cpuMove(){
+  const my = gen;
+  busy = true; render();
+  await sleep(500);
+  const play = choosePlay(S.st, S.turn, S.dice.map(d => d.v), S.level);
+  busy = false;
+  if (!play){ endTurn(); return; }
+  for (const m of play.seq){
+    if (my !== gen) return;
+    await doMove(m);
+    if (S.phase === 'over' || my !== gen) return;
+    busy = true; render();
+    await sleep(380);
+    busy = false;
+  }
+  if (my !== gen) return;
+  await sleep(300);
+  if (my === gen && S.phase !== 'over') endTurn();
+}
+function gameOver(winner){
+  const loser = 1 - winner, st = S.st;
+  let pts = 1, kind = 'Single game';
+  if (st.off[loser] === 0){
+    let back = st.bar[loser] > 0;
+    for (let p = 1; p <= 24; p++){
+      const v = st.pts[p] * sgn(loser);
+      if (v > 0 && (winner === 0 ? p <= 6 : p >= 19)) back = true;
+    }
+    pts = back ? 3 : 2; kind = back ? 'Backgammon!' : 'Gammon!';
+  }
+  S.score[winner] += pts;
+  S.phase = 'over'; S.dice = []; S.stack = [];
+  save(); render();
+  const n = names(), cpuWon = S.mode === 'cpu' && winner === 1;
+  $('overTitle').textContent = S.mode === 'cpu' ? (winner === 0 ? 'You win!' : 'Computer wins') : n[winner] + ' wins!';
+  $('overSub').textContent = kind + ' · ' + pts + (pts === 1 ? ' point' : ' points') + '. Match: ' + n[0] + ' ' + S.score[0] + ' – ' + S.score[1] + ' ' + n[1] + '.';
+  setTimeout(() => {
+    $('overBox').hidden = false;
+    if (cpuWon) sound.bad(); else { sound.win(); confetti(['#c6f432', '#ff4f8b', '#1fb5b5', '#fff3dc', '#7a5cc4']); }
+  }, 600);
+}
+
+/* ---------- Input ---------- */
+svg.addEventListener('click', e => {
+  const t = e.target.closest('.hit'); if (!t) return;
+  if (!S || busy || isCpu(S.turn) || S.phase !== 'move') return;
+  let loc = t.dataset.loc; if (loc !== BAR && loc !== OFF) loc = +loc;
+  const lg = legal();
+  if (sel !== null){
+    const ms = lg.filter(m => m.from === sel && m.to === loc).sort((a, b) => a.d - b.d);
+    if (ms.length){ doMove(ms[0]); return; }
+  }
+  if (lg.some(m => m.from === loc)){ sel = sel === loc ? null : loc; sound.click(); }
+  else sel = null;
+  render();
+});
+$('btnMain').addEventListener('click', () => {
+  if (busy) return;
+  if (S.phase === 'opening') openingRoll();
+  else if (S.phase === 'roll' && !isCpu(S.turn)) rollDice();
+  else if (S.phase === 'done' && !isCpu(S.turn)){ sound.click(); endTurn(); }
+  else if (S.phase === 'over') nextGame();
+});
+$('btnUndo').addEventListener('click', undo);
+
+/* ---------- Lifecycle ---------- */
+function fresh(score){
+  return {st: initialPos(), turn: 0, phase: 'opening', dice: [], total: 0, stack: [], opening: null, score: score || [0, 0], mode: cfg.mode, level: cfg.level};
+}
+function nextGame(){
+  gen++; stopConfetti(); $('overBox').hidden = true;
+  S = fresh(S ? S.score : null); sel = null; busy = false; rolling = null;
+  save(); render();
+}
+function newMatch(){ gen++; S = null; nextGame(); }
+
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newMatch(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnNext').addEventListener('click', nextGame);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+const syncers = [
+  seg($('segMode'), () => cfg.mode, v => { cfg.mode = v; $('levelWrap').hidden = v !== 'cpu'; }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v)
+];
+function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => S && !busy && render(), 120); });
+
+/* ---------- Boot ---------- */
+const saved = store.get('game', null);
+if (saved && saved.st && saved.st.pts && saved.phase !== 'over'){
+  S = saved;
+  // resume cleanly: an interrupted computer turn restarts from its roll
+  if (isCpu(S.turn) && S.phase !== 'roll'){
+    if (S.stack.length){ S.st = S.stack[0].st; }
+    S.phase = 'roll'; S.dice = []; S.stack = [];
+  }
+  if (S.phase === 'opening') S.opening = null;
+  render();
+  if (isCpu(S.turn) && S.phase === 'roll') setTimeout(rollDice, 600);
+} else {
+  S = fresh(saved && saved.score); render();
+  syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>
