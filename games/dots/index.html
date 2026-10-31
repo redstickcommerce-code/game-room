@@ -13,10 +13,10 @@
 /* Layout: portrait = top bar, player cards, status, square paper board, action row.
    Landscape = board on the left, side rail on the right. */
 :root{
-  --bg1:#ff9a3c; --bg2:#b8330c;
-  --muted:#ffe2cc; --panel:rgba(90,20,0,.28); --line:rgba(255,226,204,.35);
+  --bg1:#a83f0e; --bg2:#5c1c06;
+  --muted:#ffe2cc; --panel:rgba(90,20,0,.28); --line:rgba(255,226,204,.6);
   --accent:#ffe14d; --accent-2:#f2b600; --accent-ink:#3d2500;
-  --p0:#2f6bff; --p1:#ff2f7d; --paper:#fffaf0; --dot:#3d2a52;
+  --p0:#1f55e0; --p1:#d6125f; --paper:#fffaf0; --dot:#3d2a52;
 }
 .page{height:100%;display:grid;gap:12px;
   grid-template-columns:minmax(0,1fr);
@@ -46,6 +46,7 @@
 }
 .paper svg{width:100%;height:100%;display:block}
 .swatch.p0{background:var(--p0)} .swatch.p1{background:var(--p1)}
+.pcard .swatch{box-shadow:0 0 0 2px #fff}
 .ln{stroke-linecap:round}
 .ln.new{animation:draw .35s ease-out}
 @keyframes draw{from{stroke-width:2;opacity:.2}}
@@ -260,7 +261,7 @@ function render(){
   for (let b = 0; b < N * N; b++){
     if (S.boxes[b] < 0) continue;
     const r = Math.floor(b / N), c = b % N, x = PAD + c * CELL, y = PAD + r * CELL;
-    o += `<g class="${fresh.has(b) ? 'box' : ''}"><rect x="${x + 8}" y="${y + 8}" width="${CELL - 16}" height="${CELL - 16}" rx="12" fill="${col(S.boxes[b])}" opacity=".22"/>`;
+    o += `<g class="${fresh.has(b) ? 'box' : ''}"><rect x="${x + 8}" y="${y + 8}" width="${CELL - 16}" height="${CELL - 16}" rx="12" fill="${col(S.boxes[b])}" opacity=".14"/>`;
     o += `<text x="${x + CELL / 2}" y="${y + CELL / 2 + 3}" text-anchor="middle" dominant-baseline="middle" font-family="Bungee, sans-serif" font-size="${CELL * .42}" fill="${col(S.boxes[b])}">${S.boxes[b] === 0 ? '★' : '♥'}</text></g>`;
   }
   // drawn lines + tap targets for free ones
@@ -327,7 +328,7 @@ function showOver(){
   $('overSub').textContent = n[0] + ' ' + a + ' · ' + n[1] + ' ' + b;
   setTimeout(() => {
     $('overBox').hidden = false;
-    if (S.mode === 'cpu' && w === 1) sound.bad(); else { sound.win(); confetti(['#2f6bff', '#ff2f7d', '#ffe14d', '#ffffff']); }
+    if (S.mode === 'cpu' && w === 1) sound.bad(); else { sound.win(); confetti(['#1f55e0', '#d6125f', '#ffe14d', '#ffffff']); }
   }, 600);
 }
 

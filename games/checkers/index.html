@@ -13,10 +13,11 @@
 /* Layout: portrait = top bar, player cards, status, square board, action row.
    Landscape (iPad sideways) = board on the left filling the height, side rail on the right. */
 :root{
-  --bg1:#139090; --bg2:#08343f;
-  --muted:#b9e6e1; --panel:rgba(0,30,35,.35); --line:rgba(185,230,225,.28);
+  --bg1:#0b5f63; --bg2:#08343f;
+  --muted:#b9e6e1; --panel:rgba(0,30,35,.35); --line:rgba(185,230,225,.6);
   --accent:#ffd23f; --accent-2:#e9a800; --accent-ink:#3a2300;
-  --light:#b3261e; --light-2:#951c16; --dark:#1e1a18; --dark-2:#0f0d0c;
+  --light:#5a3518; --light-2:#4a2a12; --dark:#f3e0b8; --dark-2:#e6cd9b;
+  --mark:#0b57d0;
   --red-hi:#ff6a5c; --red:#d32f2f; --red-lo:#7f1010;
   --blk-hi:#5a5a5a; --blk:#222; --blk-lo:#000;
 }
@@ -48,8 +49,8 @@
 .squares{position:relative;width:100%;height:100%;display:grid;grid-template:repeat(8,1fr)/repeat(8,1fr);border-radius:6px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
 .sq{background:linear-gradient(145deg,var(--light),var(--light-2));position:relative;border:none;padding:0}
 .sq.d{background:linear-gradient(145deg,var(--dark),var(--dark-2))}
-.sq.can::after{content:"";position:absolute;inset:34%;border-radius:50%;background:rgba(255,210,63,.9);box-shadow:0 0 0 4px rgba(255,210,63,.35);animation:pulse 1.1s ease-in-out infinite}
-.sq.last{box-shadow:inset 0 0 0 3px rgba(255,210,63,.55)}
+.sq.can::after{content:"";position:absolute;inset:34%;border-radius:50%;background:var(--mark);box-shadow:0 0 0 4px rgba(11,87,208,.35);animation:pulse 1.1s ease-in-out infinite}
+.sq.last{box-shadow:inset 0 0 0 3px var(--mark)}
 @keyframes pulse{50%{transform:scale(.8);opacity:.75}}
 .pieces{position:absolute;inset:calc(var(--size) * .025);pointer-events:none}
 .pc{
@@ -65,15 +66,15 @@
 .pc.b{--hi:var(--blk-hi);--c:var(--blk);--lo:var(--blk-lo)}
 .pc.b i{outline:1.5px solid rgba(255,255,255,.28);outline-offset:-1.5px}
 .pc.k i::after{content:"♛";position:absolute;inset:0;display:grid;place-items:center;color:var(--accent);font-size:calc(var(--size) * .055);line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.4)}
-.pc.sel i{transform:translateY(-6%) scale(1.08);box-shadow:0 0 0 4px var(--accent), 0 9px 0 var(--lo), 0 14px 18px rgba(0,0,0,.45)}
-.pc.mov i{box-shadow:0 0 0 3px rgba(255,210,63,.75), 0 5px 0 var(--lo), 0 8px 12px rgba(0,0,0,.4)}
+.pc.sel i{transform:translateY(-6%) scale(1.08);box-shadow:0 0 0 3px #fff, 0 0 0 7px var(--mark), 0 9px 0 var(--lo), 0 14px 18px rgba(0,0,0,.45)}
+.pc.mov i{box-shadow:0 0 0 2px #fff, 0 0 0 5px var(--mark), 0 5px 0 var(--lo), 0 8px 12px rgba(0,0,0,.4)}
 .pc.gone{opacity:0;transform:scale(.4)}
 .pc.lift{z-index:5}
 .pc.lift i{transform:scale(1.12)}
 .pc.crown i{animation:crown .6s cubic-bezier(.3,1.6,.5,1)}
 @keyframes crown{0%{transform:scale(1)}40%{transform:scale(1.3) rotate(-10deg)}100%{transform:none}}
 .swatch.r{background:linear-gradient(160deg,var(--red-hi),var(--red) 55%,var(--red-lo))}
-.swatch.b{background:linear-gradient(160deg,var(--blk-hi),var(--blk) 55%,var(--blk-lo))}
+.swatch.b{background:linear-gradient(160deg,var(--blk-hi),var(--blk) 55%,var(--blk-lo));box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
 .thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media (prefers-reduced-motion: reduce){ .pc{transition:none} .sq.can::after,.pc.crown i{animation:none} }

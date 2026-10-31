@@ -19,21 +19,21 @@
 :root{
   color-scheme: dark;
   --ground:#23358f;       /* deep royal blue table */
-  --ground-2:#3557b0;
+  --ground-2:#2a4699;
   --leather:#3b5cb6;      /* blue dice tray */
   --leather-deep:#1f2b7c; /* navy edge / outlines */
   --ivory:#f5a21d;        /* orange dice */
   --die-hi:#ffc657;
   --die-lo:#e0860f;
   --die-edge:#b4680a;
-  --pip:#ffffff;          /* white pips */
+  --pip:#1b2470;          /* navy pips */
   --brass:#a9d23c;        /* lime accent */
   --brass-deep:#7ca526;
   --navy:#1b2470;
   --panel:rgba(20,30,105,.38);
   --ink:#ffffff;          /* text */
   --muted:#c4cff2;
-  --line:#3d55a8;
+  --line:#7f95dc;
   --good:#ffffff;
   --bad:#ff6f5e;
   --f-display:"Bungee", "Impact", "Arial Black", sans-serif;
@@ -97,7 +97,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .tray .stitch{position:absolute; inset:18px; border:2px dashed rgba(169,210,60,.35); border-radius:14px; pointer-events:none}
 .trayMsg{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; pointer-events:none; text-align:center; padding:24px}
 .trayMsg .big{font-family:var(--f-display); font-size:clamp(28px,6vmin,64px); color:var(--ink); text-shadow:0 3px 0 var(--navy)}
-.trayMsg .small{font-family:var(--f-ui); font-size:clamp(16px,2.4vmin,22px); letter-spacing:.06em; color:rgba(255,255,255,.8); text-transform:uppercase}
+.trayMsg .small{font-family:var(--f-ui); font-size:clamp(16px,2.4vmin,22px); letter-spacing:.06em; color:var(--ink); text-transform:uppercase}
 
 /* Dice */
 .die{
@@ -109,7 +109,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   will-change: transform;
 }
 .die.sm{width:var(--die-sm); height:var(--die-sm); padding:calc(var(--die-sm) * .13); box-shadow:0 3px 0 var(--die-edge), 0 5px 8px rgba(10,15,60,.4)}
-.pip{width:72%; height:72%; place-self:center; border-radius:50%; background:var(--pip); box-shadow:inset 0 -2px 2px rgba(150,90,10,.35), 0 1px 0 rgba(150,80,0,.35); visibility:hidden}
+.pip{width:72%; height:72%; place-self:center; border-radius:50%; background:var(--pip); visibility:hidden}
 .die[data-v="1"] .p5,
 .die[data-v="2"] .p1,.die[data-v="2"] .p9,
 .die[data-v="3"] .p1,.die[data-v="3"] .p5,.die[data-v="3"] .p9,
@@ -142,10 +142,9 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px;
   transition: transform .08s ease, opacity .15s ease;
 }
-.big-btn small{font-family:var(--f-ui); font-weight:600; font-size:clamp(13px,1.8vmin,16px); letter-spacing:.08em; text-transform:uppercase; opacity:.8}
+.big-btn small{font-family:var(--f-ui); font-weight:600; font-size:clamp(13px,1.8vmin,16px); letter-spacing:.08em; text-transform:uppercase}
 .big-btn:active:not(:disabled){transform:translateY(2px)}
-.big-btn:disabled{opacity:.5; cursor:not-allowed}
-.btn-bank:disabled{background:var(--panel); color:var(--muted); box-shadow:inset 0 0 0 2px var(--line); opacity:1}
+.big-btn:disabled{background:var(--panel); color:var(--muted); box-shadow:inset 0 0 0 2px var(--line); cursor:not-allowed}
 .btn-roll{background:linear-gradient(180deg,#c3e65c,var(--brass) 60%,var(--brass-deep)); color:var(--navy); box-shadow:0 5px 0 #4f6c14, inset 0 0 0 2px var(--navy)}
 .btn-bank{background:linear-gradient(180deg,var(--die-hi),var(--ivory) 60%,var(--die-lo)); color:var(--navy); box-shadow:inset 0 0 0 2px var(--navy), 0 5px 0 var(--die-edge)}
 
@@ -153,14 +152,14 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .side{grid-area:side; display:flex; flex-direction:column; gap:14px; min-height:0; min-width:0}
 .players{display:flex; flex-direction:column; gap:8px; overflow:auto; min-height:0}
 .player{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:10px 14px; display:grid; grid-template-columns:1fr auto; gap:2px 10px; align-items:baseline}
-.player.on{border-color:var(--brass); border-width:2px; background:linear-gradient(90deg, rgba(169,210,60,.28), rgba(20,30,105,.3))}
+.player.on{border-color:var(--brass); border-width:2px; background:linear-gradient(90deg, rgba(169,210,60,.14), rgba(20,30,105,.3))}
 .player .nm{font-family:var(--f-ui); font-weight:700; font-size:20px; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .player .tag{font-family:var(--f-ui); font-size:12px; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin-left:6px; font-weight:600}
 .player .sc{font-family:var(--f-ui); font-weight:700; font-size:26px; font-variant-numeric:tabular-nums; color:var(--ink)}
 .player.on .sc{color:var(--brass)}
 .player .meta{grid-column:1/-1; font-size:13px; color:var(--muted); display:flex; justify-content:space-between; gap:8px}
 .player .meta .last.neg{color:var(--bad)} .player .meta .last.pos{color:var(--brass)}
-.bar{grid-column:1/-1; height:5px; border-radius:3px; background:var(--navy); overflow:hidden; margin-top:4px}
+.bar{grid-column:1/-1; height:5px; border-radius:3px; background:rgba(255,255,255,.25); overflow:hidden; margin-top:4px}
 .bar i{display:block; height:100%; background:var(--ivory); border-radius:3px; transition:width .5s ease}
 .guide{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px 14px}
 .guide h3{margin:0 0 6px; font-family:var(--f-ui); font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600}
@@ -668,7 +667,7 @@ function celebrate(){
     const s = p.w, rr = s*.22;
     ctx.fillStyle = '#b4680a'; rrect(-s/2, -s/2 + s*.08, s, s, rr); ctx.fill();
     ctx.fillStyle = '#f5a21d'; rrect(-s/2, -s/2, s, s, rr); ctx.fill();
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#1b2470';
     pips[p.v].forEach(([a,b]) => { ctx.beginPath(); ctx.arc(a*s*.27, b*s*.27, s*.09, 0, 6.29); ctx.fill(); });
   }
   function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
