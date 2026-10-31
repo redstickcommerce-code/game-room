@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#6b1530">
+<title>Dominoes</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, felt table, your tiles, action row.
+   Landscape = table on the left at full height, side rail on the right. */
+:root{
+  --bg1:#8a1c3c; --bg2:#3d0a1e;
+  --muted:#ffd9e3; --panel:rgba(40,0,15,.4); --line:rgba(255,217,227,.6);
+  --accent:#ffd23f; --accent-2:#e0a800; --accent-ink:#3a1c00;
+  --tw:clamp(36px,10.5vmin,58px);
+}
+.page{height:100%;display:grid;gap:10px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"top" "players" "status" "board" "hand" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.status{grid-area:status}
+.boardArea{grid-area:board;min-height:0;border-radius:18px;overflow:hidden;
+  background:radial-gradient(90% 90% at 50% 40%,#23694f,#174636);
+  box-shadow:inset 0 0 0 5px #5a3518,0 14px 30px rgba(0,0,0,.4)}
+.boardArea svg{width:100%;height:100%;display:block}
+.hand{grid-area:hand;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-content:flex-start;
+  max-height:calc(var(--tw) * 4 + 22px);overflow-y:auto;padding:8px}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center}
+.actions .btn{flex:1;max-width:220px}
+.actions #btnMain{flex:2}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(250px,30vw,360px);
+    grid-template-rows:auto auto auto auto minmax(0,1fr);
+    grid-template-areas:"board top" "board players" "board status" "board actions" "board hand"}
+  .players{grid-template-columns:1fr}
+  .hand{max-height:none}
+  .actions .btn,.actions #btnMain{max-width:none}
+}
+/* Short landscape phones: a wider rail with the heading and player details dropped, so the tiles stay on screen */
+@media (orientation:landscape) and (min-width:700px) and (max-height:520px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(320px,44vw,420px);gap:6px}
+  .topbar .logo,.topbar .wide,.pcard .swatch,.pcard .sub{display:none}
+  .topbar{justify-content:space-between;flex-wrap:nowrap}
+  .players{grid-template-columns:1fr 1fr}
+  .pcard{padding:4px 10px}
+  .status{font-size:15px;letter-spacing:.02em}
+  .btn{min-height:40px}
+  .hand{padding:6px 4px}
+}
+.swatch.p0{background:#f8f1df} .swatch.p1{background:#ff8fa8}
+
+.tile{width:var(--tw);height:calc(var(--tw) * 2);padding:0;border:none;background:none;border-radius:calc(var(--tw) * .14);flex:none;display:block;
+  transition:transform .12s ease}
+.tile svg{width:100%;height:100%;display:block}
+.tile.can{box-shadow:0 0 0 3px var(--accent),0 0 0 5px #111}
+.tile.sel{box-shadow:0 0 0 4px #fff,0 0 0 7px #111}
+.rest{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin:10px 0 0;--tw:26px}
+
+.new{transform-box:fill-box;transform-origin:center;animation:drop .3s cubic-bezier(.3,1.5,.5,1)}
+@keyframes drop{from{transform:scale(1.5);opacity:0}}
+.tgt{cursor:pointer;outline:none}
+.tgt .ring{animation:pulse 1s ease-in-out infinite}
+.tgt:focus-visible .ring{stroke:#fff}
+@keyframes pulse{50%{opacity:.6}}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion: reduce){ .new,.tgt .ring{animation:none} .tile{transition:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">DOMINOES</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" aria-label="Players">
+    <div class="pcard" id="card1"><span class="swatch p1"></span><div class="who"><div class="nm" id="name1">Computer</div><div class="sub" id="sub1"></div></div><div class="num" id="score1">0</div></div>
+    <div class="pcard" id="card0"><span class="swatch p0"></span><div class="who"><div class="nm" id="name0">You</div><div class="sub" id="sub0"></div></div><div class="num" id="score0">0</div></div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="boardArea" id="boardArea">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Domino table"></svg>
+  </div>
+
+  <div class="hand" id="hand" aria-label="Your tiles"></div>
+
+  <div class="actions">
+    <button class="btn" id="btnNew" type="button">New</button>
+    <button class="btn primary" id="btnMain" type="button">DRAW</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New game</h2>
+    <p class="sub">All Fives: score whenever the open ends add up to a multiple of 5.</p>
+    <h4>Opponent</h4>
+    <div class="seg" id="segMode"><button type="button" data-v="cpu">Computer</button><button type="button" data-v="2p">Friend</button></div>
+    <div id="levelWrap">
+      <h4>Difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <h4>Play to</h4>
+    <div class="seg" id="segTarget"><button type="button" data-v="100">100</button><button type="button" data-v="150">150</button><button type="button" data-v="200">200</button></div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>Each player starts with 7 tiles from a double-six set. The rest are the boneyard. The highest double leads the first hand, and after that the winner of the last hand leads any tile.</li>
+      <li>On your turn, play a tile whose number matches an open end. If you can't, draw from the boneyard until you can. If the boneyard is empty, pass.</li>
+      <li><b>Score by fives.</b> After each play, add up the open ends. If the total is a multiple of 5, you score that many points.</li>
+      <li>A double at an open end counts both of its halves.</li>
+      <li>The first double played is the <b>spinner</b>. Once both of its long sides have been played, its other two sides open up too. Those sides count only after a tile is played on them.</li>
+      <li>Play your last tile to win the hand and score your opponent's remaining pips, rounded to the nearest 5.</li>
+      <li>If nobody can play, the hand is blocked. The lower pip total scores the difference, rounded to the nearest 5.</li>
+      <li>The first player to reach the target wins, even in the middle of a hand.</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="veil" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="veilTitle">
+    <h2 id="veilTitle">Your turn</h2>
+    <p class="sub">Pass the iPad over, then show your tiles.</p>
+    <button class="btn primary big go" id="btnVeil" type="button">SHOW MY TILES</button>
+  </div>
+</div>
+
+<div class="overlay" id="handBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="handTitle">
+    <h2 id="handTitle">Hand over</h2>
+    <p class="sub" id="handSub"></p>
+    <div class="rest" id="handRest"></div>
+    <button class="btn primary big go" id="btnNextHand" type="button">NEXT HAND</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('dominoes');
+
+/* ---------- Engine ----------
+   A tile is [a, b]. The board keeps every play in order and the list of open ends.
+   An end is {id, pip, dbl, count}: dbl means a double sits there and counts both halves;
+   count is false for a spinner side nobody has played on yet, which is open but scores nothing. */
+const HAND_SIZE = 7;
+function allTiles(){ const t = []; for (let a = 0; a <= 6; a++) for (let b = 0; b <= a; b++) t.push([a, b]); return t; }
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const isDouble = t => t[0] === t[1];
+const same = (t, u) => (t[0] === u[0] && t[1] === u[1]) || (t[0] === u[1] && t[1] === u[0]);
+const handPips = h => h.reduce((n, t) => n + t[0] + t[1], 0);
+const roundFive = n => Math.round(n / 5) * 5;
+const newBoard = () => ({plays: [], ends: [], spinner: null, nextEnd: 1});
+function boardCount(b){
+  if (!b.plays.length) return 0;
+  if (b.plays.length === 1 && isDouble(b.plays[0].t)) return b.plays[0].t[0] * 2;   // both ends are the same tile
+  return b.ends.reduce((n, e) => n + (e.count ? e.pip * (e.dbl ? 2 : 1) : 0), 0);
+}
+const legalEnds = (b, t) => b.plays.length ? b.ends.filter(e => e.pip === t[0] || e.pip === t[1]) : [null];
+/* Play tile t on end endId (ignored for the first tile). Returns the points scored. */
+function playTile(b, t, endId){
+  const newEnd = (pip, dbl, count) => { const e = {id: b.nextEnd++, pip, dbl, count}; b.ends.push(e); return e; };
+  if (!b.plays.length){
+    const dbl = isDouble(t), l = newEnd(t[0], dbl, true), r = newEnd(t[1], dbl, true);
+    b.plays.push({t: t.slice(), first: true, ends: [l.id, r.id]});
+    if (dbl) b.spinner = {play: 0, ends: [l.id, r.id], opened: false};
+  } else {
+    const e = b.ends.find(x => x.id === endId), near = e.pip, far = t[0] === near ? t[1] : t[0];
+    b.ends.splice(b.ends.indexOf(e), 1);
+    const out = newEnd(far, isDouble(t), true), p = {t: [near, far], end: e.id, out: out.id};
+    b.plays.push(p);
+    if (!b.spinner && isDouble(t)) b.spinner = {play: b.plays.length - 1, ends: [out.id], opened: false};
+    else if (b.spinner && !b.spinner.opened && b.spinner.ends.includes(e.id)){
+      b.spinner.ends = b.spinner.ends.filter(id => id !== e.id);
+      if (!b.spinner.ends.length){
+        b.spinner.opened = true;
+        const pip = b.plays[b.spinner.play].t[0];
+        p.sides = {play: b.spinner.play, ends: [newEnd(pip, false, false).id, newEnd(pip, false, false).id]};
+      }
+    }
+  }
+  const c = boardCount(b);
+  return c > 0 && c % 5 === 0 ? c : 0;
+}
+/* Who leads the first hand: the highest double, or the heaviest tile if nobody has a double. */
+function firstLead(hands){
+  let best = null;
+  hands.forEach((h, seat) => h.forEach(t => {
+    const v = (isDouble(t) ? 100 : 0) + t[0] + t[1] + t[0] * .01;
+    if (!best || v > best.v) best = {v, seat, t};
+  }));
+  return best;
+}
+const cloneBoard = b => JSON.parse(JSON.stringify(b));
+/* Computer's choice: {tile, end}. Easy is mostly random, medium takes the most points now,
+   hard also weighs what the opponent could score next and keeps its own tiles playable. */
+function chooseMove(b, hand, oppCount, level, forced){
+  const opts = [];
+  hand.forEach(t => {
+    if (forced && !same(t, forced)) return;
+    legalEnds(b, t).forEach(e => {
+      const n = cloneBoard(b), pts = playTile(n, t, e && e.id);
+      opts.push({tile: t, end: e && e.id, pts, after: n, heavy: t[0] + t[1]});
+    });
+  });
+  if (!opts.length) return null;
+  if (level === 'easy' && Math.random() < .6) return opts[Math.floor(Math.random() * opts.length)];
+  if (level !== 'hard') return opts.reduce((x, o) => o.pts * 100 + o.heavy > x.pts * 100 + x.heavy ? o : x);
+  const seen = b.plays.map(p => p.t).concat(hand);
+  const unseen = allTiles().filter(t => !seen.some(s => same(s, t)));
+  const held = unseen.length ? Math.min(1, oppCount / unseen.length) : 0;
+  let top = null, topV = -Infinity;
+  for (const o of opts){
+    let danger = 0;
+    for (const t of unseen){
+      let best = 0;
+      for (const e of legalEnds(o.after, t)) best = Math.max(best, playTile(cloneBoard(o.after), t, e.id));
+      danger += best * held;
+    }
+    const rest = hand.filter(t => t !== o.tile);
+    const keeps = rest.filter(t => legalEnds(o.after, t).length).length;
+    const v = o.pts - danger * .35 + o.heavy * .15 + keeps * .6;
+    if (v > topV){ topV = v; top = o; }
+  }
+  return top;
+}
+
+/* Table layout: replay the plays and lay each tile on from its end's head point. Arms run straight, then turn
+   clockwise at the table edge or when blocked. Units: a tile is 2 x 1. Returns the tiles and each open end's head. */
+function layout(plays, hw, hh){
+  const tiles = [], heads = {}, spinnerAt = plays.findIndex(p => isDouble(p.t));
+  let reserved = [];   // room kept free for the spinner's two sides until they are played
+  const hits = (o, r) => Math.abs(o.x - r.x) < (o.w + r.w) / 2 - .01 && Math.abs(o.y - r.y) < (o.h + r.h) / 2 - .01;
+  const clear = (r, inBounds) => {
+    if (inBounds && (Math.abs(r.x) + r.w / 2 > hw + .01 || Math.abs(r.y) + r.h / 2 > hh + .01)) return false;
+    if (Object.values(heads).some(h => hits({x: h.x + h.dx * .5, y: h.y + h.dy * .5, w: 1, h: 1}, r))) return false;   // don't block another open end
+    return !tiles.some(o => hits(o, r)) && !reserved.some(o => hits(o, r));
+  };
+  const hasRoom = c => clear(c.tile, true) && Math.abs(c.head.x + c.head.dx) <= hw + .01 && Math.abs(c.head.y + c.head.dy) <= hh + .01;
+  const reserveSides = s => {
+    const [sx, sy] = s.side, d = s.sideDist + 1;
+    s.res = [-1, 1].map(k => ({x: s.x + sx * d * k, y: s.y + sy * d * k, w: sx ? 2 : 1, h: sy ? 2 : 1}));
+    reserved.push(...s.res);
+  };
+  const lengthwise = (cx, cy, dx, dy, near, far, sideDist) => ({
+    x: cx, y: cy, w: dx ? 2 : 1, h: dy ? 2 : 1,
+    a: dx > 0 || dy > 0 ? near : far, b: dx > 0 || dy > 0 ? far : near, side: [-dy, dx], sideDist
+  });
+  plays.forEach(p => {
+    if (p.first){
+      const dbl = isDouble(p.t), half = dbl ? .5 : 1;
+      tiles.push({x: 0, y: 0, w: dbl ? 1 : 2, h: dbl ? 2 : 1, a: p.t[0], b: p.t[1], side: [0, 1], sideDist: 1});
+      if (dbl) reserveSides(tiles[0]);
+      heads[p.ends[0]] = {x: -half, y: 0, dx: -1, dy: 0};
+      heads[p.ends[1]] = {x: half, y: 0, dx: 1, dy: 0};
+      return;
+    }
+    const h = heads[p.end], [near, far] = p.t, dbl = near === far;
+    delete heads[p.end];
+    if (h.res) reserved = reserved.filter(o => o !== h.res);
+    const cands = [];
+    const fwd = dbl
+      ? {tile: {x: h.x + h.dx * .5, y: h.y + h.dy * .5, w: h.dx ? 1 : 2, h: h.dy ? 1 : 2, a: near, b: far, side: [-h.dy, h.dx], sideDist: 1}, adv: 1}
+      : {tile: lengthwise(h.x + h.dx, h.y + h.dy, h.dx, h.dy, near, far, .5), adv: 2};
+    cands.push({tile: fwd.tile, head: {x: h.x + h.dx * fwd.adv, y: h.y + h.dy * fwd.adv, dx: h.dx, dy: h.dy}});
+    for (const [dx, dy] of [[-h.dy, h.dx], [h.dy, -h.dx]]){   // clockwise, then the other way
+      const cx = h.x + h.dx * .5, cy = h.y + h.dy * .5;
+      cands.push({tile: lengthwise(cx + dx * .5, cy + dy * .5, dx, dy, near, far, .5), head: {x: cx + dx * 1.5, y: cy + dy * 1.5, dx, dy}});
+    }
+    // Avoid dead ends: after this tile, a plain tile must still fit somewhere from the new head.
+    const exits = c => {
+      const n = c.head, cx = n.x + n.dx * .5, cy = n.y + n.dy * .5;
+      const next = [lengthwise(n.x + n.dx, n.y + n.dy, n.dx, n.dy, 0, 0, .5)];
+      for (const [dx, dy] of [[-n.dy, n.dx], [n.dy, -n.dx]]) next.push(lengthwise(cx + dx * .5, cy + dy * .5, dx, dy, 0, 0, .5));
+      return next.some(r => !hits(c.tile, r) && clear(r, false));
+    };
+    const free = c => clear(c.tile, false) && exits(c);
+    const pick = cands.find(c => hasRoom(c) && exits(c)) || cands.find(c => clear(c.tile, true) && exits(c)) || cands.find(free) ||
+      cands.find(c => clear(c.tile, false)) || cands.find(c => !tiles.some(o => hits(o, c.tile))) || (() => {
+        // Boxed in on all sides (very rare): leave a gap rather than hide any pips.
+        for (let k = 1; ; k++){
+          const tile = lengthwise(h.x + h.dx * (1 + k), h.y + h.dy * (1 + k), h.dx, h.dy, near, far, .5);
+          if (!tiles.some(o => hits(o, tile))) return {tile, head: {x: h.x + h.dx * (2 + k), y: h.y + h.dy * (2 + k), dx: h.dx, dy: h.dy}};
+        }
+      })();
+    tiles.push(pick.tile);
+    if (tiles.length - 1 === spinnerAt) reserveSides(pick.tile);
+    heads[p.out] = pick.head;
+    if (p.sides){
+      const s = tiles[p.sides.play], [sx, sy] = s.side;
+      heads[p.sides.ends[0]] = {x: s.x - sx * s.sideDist, y: s.y - sy * s.sideDist, dx: -sx, dy: -sy, res: s.res[0]};
+      heads[p.sides.ends[1]] = {x: s.x + sx * s.sideDist, y: s.y + sy * s.sideDist, dx: sx, dy: sy, res: s.res[1]};
+    }
+  });
+  return {tiles, heads};
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium', target: 150}, store.get('cfg', {}));
+let S = null, sel = null, gen = 0, thinking = false, fresh = -1;
+const isCpu = seat => S.mode === 'cpu' && seat === 1;
+const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['Player 1', 'Player 2'];
+const viewer = () => S.mode === 'cpu' ? 0 : S.turn;
+const save = () => store.set('game', S);
+
+function dealHand(lead){
+  const deck = shuffle(allTiles());
+  S.hands = [deck.splice(0, HAND_SIZE), deck.splice(0, HAND_SIZE)];
+  S.bone = deck; S.board = newBoard(); S.passes = 0; S.phase = 'play'; S.note = ''; S.result = null;
+  if (lead == null){ const f = firstLead(S.hands); S.turn = f.seat; S.forced = f.t; }
+  else { S.turn = lead; S.forced = null; }
+  sortHands(); sel = null; fresh = -1;
+}
+function sortHands(){ S.hands.forEach(h => h.sort((x, y) => (y[0] + y[1]) - (x[0] + x[1]) || y[0] - x[0])); }
+function newMatch(){
+  gen++; stopConfetti();
+  S = {mode: cfg.mode, level: cfg.level, target: +cfg.target, scores: [0, 0], over: false};
+  dealHand(null);
+  ['overBox', 'handBox'].forEach(id => $(id).hidden = true);
+  save(); render(); beginTurn();
+}
+const legalFor = t => S.forced && !same(t, S.forced) ? [] : legalEnds(S.board, t);
+const hasMove = seat => S.hands[seat].some(t => legalFor(t).length);
+
+function beginTurn(){
+  if (S.phase !== 'play') return;
+  if (S.mode === '2p'){ showVeil(); return; }
+  maybeCpu();
+}
+function showVeil(){
+  $('veilTitle').textContent = names()[S.turn] + "'s turn";
+  $('veil').hidden = false;
+}
+function nextTurn(){
+  S.turn = 1 - S.turn; sel = null;
+  save(); render(); beginTurn();
+}
+
+function doPlay(seat, tile, endId){
+  const h = S.hands[seat];
+  h.splice(h.findIndex(t => same(t, tile)), 1);
+  const pts = playTile(S.board, tile, endId);
+  S.forced = null; S.passes = 0; sel = null; fresh = S.board.plays.length - 1;
+  S.note = (pts ? `${names()[seat]} scored ${pts}` : `Ends add up to ${boardCount(S.board)}`);
+  if (pts){ S.scores[seat] += pts; sound.good(); callout('+' + pts); } else sound.place();
+  if (S.scores[seat] >= S.target){ finish(seat); return; }
+  if (!h.length){ endHand('out', seat); return; }
+  nextTurn();
+}
+function doDraw(seat){
+  const t = S.bone.pop();
+  S.hands[seat].push(t); sortHands();
+  S.note = `${names()[seat]} drew a tile`;
+  sound.click(); save(); render();
+}
+function doPass(seat){
+  S.passes++; sound.click();
+  S.note = `${names()[seat]} passed`;
+  if (S.passes >= 2){ endHand('block', seat); return; }
+  nextTurn();
+}
+function endHand(kind){
+  let winner = -1, pts = 0;
+  const pips = S.hands.map(handPips);
+  if (kind === 'out'){ winner = S.hands[0].length ? 1 : 0; pts = roundFive(pips[1 - winner]); }
+  else if (pips[0] !== pips[1]){ winner = pips[0] < pips[1] ? 0 : 1; pts = roundFive(pips[1 - winner] - pips[winner]); }
+  if (winner >= 0) S.scores[winner] += pts;
+  S.result = {kind, winner, pts, rest: S.hands.map(h => h.slice())};
+  S.phase = 'hand'; sel = null;
+  if (winner >= 0 && S.scores[winner] >= S.target){ finish(winner); return; }
+  save(); render();
+  const g = gen;
+  setTimeout(() => { if (g === gen) showHand(); }, 800);
+}
+function resultText(){
+  const r = S.result, n = names();
+  if (r.kind === 'out') return `${n[r.winner]} went out and scored ${r.pts} from the tiles left over.`;
+  if (r.winner < 0) return 'Nobody could play, and the pip totals tied. No points this hand.';
+  return `Nobody could play. ${n[r.winner]} had fewer pips and scored ${r.pts}.`;
+}
+function showHand(){
+  const r = S.result, n = names();
+  $('handTitle').textContent = r.kind === 'out' ? 'Domino!' : 'Blocked';
+  $('handSub').textContent = `${resultText()} ${n[0]} ${S.scores[0]}, ${n[1]} ${S.scores[1]}.`;
+  $('handRest').innerHTML = r.rest.flat().map(t => `<span class="tile">${tileSvg(t)}</span>`).join('');
+  $('handBox').hidden = false;
+}
+function finish(w){
+  S.over = true; S.phase = 'over'; S.winner = w;
+  save(); render();
+  const g = gen, n = names();
+  setTimeout(() => {
+    if (g !== gen) return;
+    $('overTitle').textContent = S.mode === 'cpu' ? (w === 0 ? 'You win' : 'Computer wins') : n[w] + ' wins';
+    $('overSub').textContent = `${n[0]} ${S.scores[0]}, ${n[1]} ${S.scores[1]}.`;
+    $('overBox').hidden = false;
+    if (isCpu(w)) sound.bad();
+    else { sound.win(); confetti(['#f8f1df', '#ffd23f', '#8a1c3c', '#23694f']); }
+  }, 900);
+}
+async function maybeCpu(){
+  if (!S || S.phase !== 'play' || !isCpu(S.turn)) return;
+  const g = gen, seat = S.turn;
+  thinking = true; render();
+  await sleep(850);
+  if (g !== gen) return;
+  thinking = false;
+  const m = chooseMove(S.board, S.hands[seat], S.hands[1 - seat].length, S.level, S.forced);
+  if (m) doPlay(seat, m.tile, m.end);
+  else if (S.bone.length){ doDraw(seat); maybeCpu(); }
+  else doPass(seat);
+}
+
+/* ---------- Drawing ---------- */
+const PIPS = {0: [], 1: [[0, 0]], 2: [[-1, -1], [1, 1]], 3: [[-1, -1], [0, 0], [1, 1]], 4: [[-1, -1], [1, -1], [-1, 1], [1, 1]],
+  5: [[-1, -1], [1, -1], [0, 0], [-1, 1], [1, 1]], 6: [[-1, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [1, 1]]};
+function tileG(x, y, w, h, a, b, cls, stroke){
+  const horiz = w > h, cx = [horiz ? x - .5 : x, horiz ? x + .5 : x], cy = [horiz ? y : y - .5, horiz ? y : y + .5];
+  let o = `<g${cls ? ` class="${cls}"` : ''}><rect x="${x - w / 2 + .03}" y="${y - h / 2 + .03}" width="${w - .06}" height="${h - .06}" rx=".13" fill="#f8f1df" stroke="${stroke || '#3a2c14'}" stroke-width="${stroke ? .09 : .05}"/>`;
+  o += horiz ? `<line x1="${x}" y1="${y - .4}" x2="${x}" y2="${y + .4}"` : `<line x1="${x - .4}" y1="${y}" x2="${x + .4}" y2="${y}"`;
+  o += ' stroke="#6b5a3a" stroke-width=".05"/>';
+  [a, b].forEach((v, i) => { for (const [px, py] of PIPS[v]) o += `<circle cx="${cx[i] + px * .27}" cy="${cy[i] + py * .27}" r=".095" fill="#1a1a1a"/>`; });
+  return o + '</g>';
+}
+const tileSvg = t => `<svg viewBox="-.5 -1 1 2" aria-hidden="true">${tileG(0, 0, 1, 2, t[0], t[1])}</svg>`;
+
+/* The camera starts close in and pulls back only as far as the tiles and open ends need. */
+const CLOSE_UNITS = 8;   // how many tile widths fit across the table's short side at the closest zoom
+let view = null, viewFor = '', viewAnim = 0;
+const showView = v => $('svg').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+function frameBoard(tiles, heads, area){
+  let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+  const grow = (x, y, rx, ry) => { x0 = Math.min(x0, x - rx); x1 = Math.max(x1, x + rx); y0 = Math.min(y0, y - ry); y1 = Math.max(y1, y + ry); };
+  if (tiles.length){ x0 = y0 = Infinity; x1 = y1 = -Infinity; }
+  tiles.forEach(t => grow(t.x, t.y, t.w / 2 + .5, t.h / 2 + .5));
+  Object.values(heads).forEach(h => grow(h.x + h.dx * .8, h.y + h.dy * .8, 1, 1));
+  const aw = area.clientWidth || 1, ah = area.clientHeight || 1;
+  const px = Math.min(Math.min(aw, ah) / CLOSE_UNITS, aw / (x1 - x0 || 1), ah / (y1 - y0 || 1));
+  const w = aw / px, h = ah / px, next = {x: (x0 + x1 - w) / 2, y: (y0 + y1 - h) / 2, w, h};
+  const size = aw + 'x' + ah, snap = !view || viewFor !== size || !tiles.length || Kit.RM;
+  viewFor = size;
+  cancelAnimationFrame(viewAnim);
+  if (snap){ view = next; showView(view); return; }
+  const from = view, t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / 350), e = 1 - (1 - k) * (1 - k);
+    view = {x: from.x + (next.x - from.x) * e, y: from.y + (next.y - from.y) * e, w: from.w + (next.w - from.w) * e, h: from.h + (next.h - from.h) * e};
+    showView(view);
+    if (k < 1) viewAnim = requestAnimationFrame(step);
+  };
+  viewAnim = requestAnimationFrame(step);
+}
+
+function renderBoard(){
+  const area = $('boardArea');
+  const asp = Math.min(2.2, Math.max(.5, (area.clientWidth || 1) / (area.clientHeight || 1)));
+  const hw = 8 * Math.sqrt(asp), hh = 8 / Math.sqrt(asp);
+  const {tiles, heads} = layout(S.board.plays, hw, hh);
+  frameBoard(tiles, heads, area);
+  const last = tiles.length - 1;
+  let o = '';
+  tiles.forEach((t, i) => { o += tileG(t.x, t.y, t.w, t.h, t.a, t.b, i === fresh ? 'new' : '', i === last ? '#ffd23f' : ''); });
+  if (sel && S.phase === 'play' && !isCpu(S.turn)){
+    for (const e of legalFor(sel)){
+      if (!e) continue;
+      const h = heads[e.id], cx = h.x + h.dx * .8, cy = h.y + h.dy * .8;
+      const n = cloneBoard(S.board), pts = playTile(n, sel, e.id);
+      o += `<g class="tgt" data-end="${e.id}" role="button" tabindex="0" aria-label="Play on the ${e.pip} end${pts ? `, scores ${pts}` : ''}">` +
+        `<circle cx="${cx}" cy="${cy}" r="1.25" fill="transparent"/>` +
+        `<circle class="ring" cx="${cx}" cy="${cy}" r=".78" fill="#ffd23f" stroke="#111" stroke-width=".1"/>` +
+        `<text x="${cx}" y="${cy + .03}" font-size="${pts ? .62 : .8}" font-family="Bungee, sans-serif" fill="#111" text-anchor="middle" dominant-baseline="middle">${pts ? '+' + pts : '•'}</text></g>`;
+    }
+  }
+  $('svg').innerHTML = o;
+}
+function renderHand(){
+  const seat = viewer(), mine = S.phase === 'play' && !isCpu(S.turn);
+  const el = $('hand'); el.innerHTML = '';
+  S.hands[seat].forEach(t => {
+    const b = document.createElement('button');
+    const can = mine && legalFor(t).length > 0, isSel = sel && same(sel, t);
+    b.type = 'button';
+    b.className = 'tile' + (isSel ? ' sel' : can ? ' can' : ' off');
+    b.setAttribute('aria-label', `${t[0]} and ${t[1]}` + (can ? '' : ', cannot be played'));
+    b.innerHTML = tileSvg(t);
+    b.addEventListener('click', () => tapTile(t));
+    el.appendChild(b);
+  });
+}
+function statusHtml(){
+  const n = names(), who = n[S.turn], you = S.mode === 'cpu' && S.turn === 0;
+  if (S.phase === 'over') return `<b>${n[S.winner]} ${S.mode === 'cpu' && S.winner === 0 ? 'win' : 'wins'}</b>`;
+  if (S.phase === 'hand') return `<b>${S.result.kind === 'out' ? 'Domino!' : 'Blocked'}</b>`;
+  if (isCpu(S.turn)) return `<span class="${thinking ? 'thinking' : ''}">${S.note ? S.note + ' · ' : ''}Computer's turn</span>`;
+  const lead = you ? 'Your move' : who + "'s move";
+  if (S.forced) return `<b>${lead}</b> · lead the ${S.forced[0]}-${S.forced[1]}`;
+  if (!S.board.plays.length) return `<b>${lead}</b> · lead any tile`;
+  if (sel && legalFor(sel).length > 1) return `<b>${lead}</b> · pick an end`;
+  if (!hasMove(S.turn)) return `<b>${lead}</b> · ${S.bone.length ? 'no play, draw a tile' : 'no play, pass'}`;
+  return `<b>${lead}</b> · ${S.note || 'ends add up to ' + boardCount(S.board)}`;
+}
+function render(){
+  const n = names();
+  [0, 1].forEach(seat => {
+    $('name' + seat).textContent = n[seat];
+    $('score' + seat).textContent = S.scores[seat];
+    $('card' + seat).classList.toggle('on', S.phase === 'play' && S.turn === seat);
+    const c = S.hands[seat].length;
+    $('sub' + seat).textContent = `${c} tile${c === 1 ? '' : 's'}` + (seat === 1 && S.mode === 'cpu' ? ' · ' + S.level : '');
+  });
+  $('status').innerHTML = statusHtml();
+  const main = $('btnMain'), mine = S.phase === 'play' && !isCpu(S.turn), stuck = mine && !hasMove(S.turn);
+  main.textContent = stuck && !S.bone.length ? 'PASS' : `DRAW · ${S.bone.length}`;
+  main.disabled = !stuck;
+  renderBoard(); renderHand();
+}
+
+/* ---------- Input ---------- */
+function tapTile(t){
+  if (S.phase !== 'play' || isCpu(S.turn)) return;
+  const ends = legalFor(t);
+  if (!ends.length){ sound.click(); callout(S.forced ? `LEAD ${S.forced[0]}-${S.forced[1]}` : 'NO MATCH'); return; }
+  if (sel && same(sel, t)){ sel = null; render(); return; }
+  if (ends.length === 1){ doPlay(S.turn, t, ends[0] && ends[0].id); return; }
+  sel = t; sound.click(); render();
+}
+function tapEnd(id){
+  if (!sel || S.phase !== 'play' || isCpu(S.turn)) return;
+  const t = sel;
+  if (legalFor(t).some(e => e.id === id)) doPlay(S.turn, t, id);
+}
+$('svg').addEventListener('click', e => { const g = e.target.closest('.tgt'); if (g) tapEnd(+g.dataset.end); });
+$('svg').addEventListener('keydown', e => { const g = e.target.closest('.tgt'); if (g && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); tapEnd(+g.dataset.end); } });
+$('btnMain').addEventListener('click', () => {
+  if (S.phase !== 'play' || isCpu(S.turn) || hasMove(S.turn)) return;
+  if (S.bone.length) doDraw(S.turn); else doPass(S.turn);
+});
+$('btnVeil').addEventListener('click', () => { $('veil').hidden = true; render(); });
+$('btnNextHand').addEventListener('click', () => {
+  $('handBox').hidden = true;
+  dealHand(S.result.winner >= 0 ? S.result.winner : null);
+  save(); render(); beginTurn();
+});
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newMatch(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnAgain').addEventListener('click', newMatch);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+new ResizeObserver(() => { if (S) renderBoard(); }).observe($('boardArea'));
+
+const syncers = [
+  seg($('segMode'), () => cfg.mode, v => { cfg.mode = v; $('levelWrap').hidden = v !== 'cpu'; }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v),
+  seg($('segTarget'), () => cfg.target, v => cfg.target = +v)
+];
+function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
+
+/* ---------- Boot ---------- */
+const saved = store.get('game', null);
+if (saved && saved.board && saved.hands && !saved.over){
+  S = saved;
+  render();
+  if (S.phase === 'hand') showHand(); else beginTurn();
+} else {
+  S = {mode: cfg.mode, level: cfg.level, target: +cfg.target, scores: [0, 0], over: false};
+  dealHand(null);
+  render();
+  syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>
