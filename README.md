@@ -12,6 +12,7 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | Mancala | 2, or vs Computer | Kalah rules |
 | Dots & Boxes | 2, or vs Computer (Easy / Medium / Hard) | 3×3, 5×5 or 7×7 boards |
 | Dominoes | 2, or vs Computer (Easy / Medium / Hard) | All Fives: double-six set with a spinner, scoring on multiples of 5, played to 100, 150 or 200 |
+| Chess | 2, or vs Computer (Easy / Medium / Hard) | Full rules: castling, en passant, promotion and every draw. Hard is capped at roughly 1500 strength |
 
 Each game saves the game in progress to the browser, so closing the tab doesn't lose it.
 
