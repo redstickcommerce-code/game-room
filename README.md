@@ -8,7 +8,7 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | --- | --- | --- |
 | Checkers | 2, or vs Computer (Easy / Medium / Hard) | Forced captures, multi-jumps, kings, undo, hints |
 | Backgammon | 2, or vs Computer (Easy / Medium / Hard) | Full rules: bar, bearing off, doubles, must-use-both-dice rule, gammons and backgammons, match score. No doubling cube yet. |
-| Farkle | 1–6, any mix of humans and computer | |
+| Hot Dice | 1–6, any mix of humans and computer | Push-your-luck dice |
 | Mancala | 2, or vs Computer | Kalah rules |
 | Dots & Boxes | 2, or vs Computer (Easy / Medium / Hard) | 3×3, 5×5 or 7×7 boards |
 | Dominoes | 2, or vs Computer (Easy / Medium / Hard) | All Fives: double-six set with a spinner, scoring on multiples of 5, played to 100, 150 or 200 |

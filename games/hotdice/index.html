@@ -6,10 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Farkle">
+<meta name="apple-mobile-web-app-title" content="Hot Dice">
 <meta name="theme-color" content="#23358f">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}html,body{height:100%}:root{box-sizing:border-box;height:100%}</style>
-<title>Farkle Table</title>
+<title>Hot Dice</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -236,7 +236,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 
 <div class="app" id="app">
   <header class="head">
-    <div class="logo">FARKLE</div>
+    <div class="logo">HOT DICE</div>
     <div class="turninfo" id="turninfo"></div>
     <div class="headbtns">
       <a class="ghost home" href="../../index.html" aria-label="Back to all games">&#8592; Games</a>
@@ -322,7 +322,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <ol class="rules">
       <li>Tap <b>Roll</b>. Tap the scoring dice you want to keep. Every die you select has to score.</li>
       <li>Roll the rest to push your luck, or <b>Bank</b> the turn total into your score.</li>
-      <li>If a roll has no scoring dice, that's a <b>Farkle</b>: you lose everything from this turn.</li>
+      <li>If a roll has no scoring dice, that's a <b>Bust</b>: you lose everything from this turn.</li>
       <li><b>Hot dice:</b> score all six and you get all six back to keep rolling.</li>
       <li>Combinations only count within a single roll. A 1 kept earlier can't join a pair of 1s rolled later.</li>
       <li>You need the opening minimum in one turn before your first bank counts.</li>
@@ -350,7 +350,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 (function(){
 const {sound} = Kit;
 const $ = id => document.getElementById(id);
-const LS_KEY = 'farkle-table-v1';
+const LS_KEY = 'hotdice-v1', OLD_KEY = 'farkle-table-v1';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fmt = n => n.toLocaleString('en-US');
 
@@ -414,7 +414,17 @@ function newGame(c){
   save(); render(); maybeCpu();
 }
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({S, cfg})); }catch(e){} }
-function load(){ try{ const d = JSON.parse(localStorage.getItem(LS_KEY)); if (d && d.S && d.S.players) return d; }catch(e){} return null; }
+function load(){
+  try{
+    let raw = localStorage.getItem(LS_KEY);
+    if (raw == null && (raw = localStorage.getItem(OLD_KEY)) != null){   // a game saved before the rename
+      localStorage.setItem(LS_KEY, raw); localStorage.removeItem(OLD_KEY);
+    }
+    const d = JSON.parse(raw);
+    if (d && d.S && d.S.players){ if (d.S.phase === 'farkle') d.S.phase = 'bust'; return d; }
+  }catch(e){}
+  return null;
+}
 
 const P = () => S.players[S.cur];
 const freeDice = () => S.dice.filter(d => d.st==='free');
@@ -505,13 +515,13 @@ function render(){
     el.setAttribute('aria-pressed', d.sel ? 'true' : 'false');
     el.classList.toggle('sel', d.sel && !p.cpu);
     el.classList.toggle('cpuPick', d.sel && p.cpu);
-    el.classList.toggle('dead', S.phase==='farkle');
+    el.classList.toggle('dead', S.phase==='bust');
     if (lastRollAnim){ el.classList.remove('rolling'); void el.offsetWidth; el.classList.add('rolling'); }
     placeDie(el, d);
   });
   if (S.rolled){
     lastRollAnim = false;
-    if (S.phase==='farkle') showMsg('', p.cpu ? '' : 'Tap to pass the dice');
+    if (S.phase==='bust') showMsg('', p.cpu ? '' : 'Tap to pass the dice');
   } else if (S.phase !== 'over') {
     showMsg(p.cpu ? p.name + ' is up' : 'Your roll, ' + p.name, p.cpu ? 'Thinking…' : (S.hot ? 'Hot dice! Roll all six' : 'Tap Roll to start your turn'));
   }
@@ -520,11 +530,11 @@ function render(){
   const sc = selScore();
   const selN = selDice().length;
   const tt = S.turn + sc;
-  $('turnTotal').textContent = fmt(S.phase==='farkle' ? 0 : tt);
+  $('turnTotal').textContent = fmt(S.phase==='bust' ? 0 : tt);
   const hint = $('hint'); hint.className = 'hint';
   let canRoll = false, canBank = false;
   if (S.phase === 'over' || p.cpu || busy){ hint.textContent = p.cpu && S.phase!=='over' ? p.name + ' is playing…' : ''; }
-  else if (S.phase === 'farkle'){ hint.textContent = 'Farkle. Turn points lost.'; hint.classList.add('warn'); }
+  else if (S.phase === 'bust'){ hint.textContent = 'Bust. Turn points lost.'; hint.classList.add('warn'); }
   else if (!S.rolled){ canRoll = true; hint.textContent = S.turn ? `${fmt(S.turn)} riding on this roll` : ''; }
   else if (selN === 0){ hint.textContent = 'Tap the dice you want to keep'; }
   else if (sc === 0){ hint.textContent = 'Every selected die has to score'; hint.classList.add('warn'); }
@@ -537,9 +547,9 @@ function render(){
   // roll sub label
   let rollN = freeDice().length;
   if (S.rolled && selN && sc){ rollN = rollN - selN; if (rollN===0) rollN = 6; }
-  $('rollSub').textContent = S.phase==='farkle' && !p.cpu ? 'next player' : (rollN + (rollN===1?' die':' dice') + (S.rolled && rollN===6 && selN===freeDice().length ? ' · hot' : ''));
-  $('btnRoll').firstChild.textContent = S.phase==='farkle' && !p.cpu ? 'PASS' : 'ROLL';
-  $('btnRoll').disabled = !(canRoll || (S.phase==='farkle' && !p.cpu && !busy));
+  $('rollSub').textContent = S.phase==='bust' && !p.cpu ? 'next player' : (rollN + (rollN===1?' die':' dice') + (S.rolled && rollN===6 && selN===freeDice().length ? ' · hot' : ''));
+  $('btnRoll').firstChild.textContent = S.phase==='bust' && !p.cpu ? 'PASS' : 'ROLL';
+  $('btnRoll').disabled = !(canRoll || (S.phase==='bust' && !p.cpu && !busy));
   $('bankSub').textContent = fmt(canBank ? p.score + tt : p.score);
   $('btnBank').disabled = !canBank;
 
@@ -556,7 +566,7 @@ function render(){
     const meta = document.createElement('div'); meta.className='meta';
     const a = document.createElement('span'); a.textContent = x.onBoard ? (x.score===lead && lead>0 ? 'Leading' : `${fmt(Math.max(0,S.target-x.score))} to go`) : `Not on board`;
     const b = document.createElement('span'); b.className='last';
-    if (x.last !== null){ b.textContent = x.last > 0 ? `+${fmt(x.last)}` : 'Farkle'; b.classList.add(x.last>0?'pos':'neg'); }
+    if (x.last !== null){ b.textContent = x.last > 0 ? `+${fmt(x.last)}` : 'Bust'; b.classList.add(x.last>0?'pos':'neg'); }
     meta.append(a,b);
     row.append(nm, s, bar, meta);
     pl.appendChild(row);
@@ -571,14 +581,14 @@ function stamp(text, hot){
 
 /* ---------- Actions ---------- */
 function toggle(idx){
-  if (busy || P().cpu || S.phase!=='rolled') { if (S.phase==='farkle' && !P().cpu && !busy) nextTurn(); return; }
+  if (busy || P().cpu || S.phase!=='rolled') { if (S.phase==='bust' && !P().cpu && !busy) nextTurn(); return; }
   const d = S.dice[idx]; if (d.st!=='free') return;
   d.sel = !d.sel; sound.click(); save(); render();
 }
 
 async function doRoll(){
   if (busy) return;
-  if (S.phase === 'farkle'){ nextTurn(); return; }
+  if (S.phase === 'bust'){ nextTurn(); return; }
   if (S.rolled){
     const sel = selDice(); const sc = selScore();
     if (!sel.length || !sc) return;
@@ -605,10 +615,10 @@ async function doRoll(){
   await sleep(560);
   busy = false;
   if (!hasScore(freeDice().map(d=>d.v))){
-    S.phase = 'farkle';
+    S.phase = 'bust';
     P().last = 0;
     save(); render();
-    stamp('FARKLE'); sound.bad();
+    stamp('BUST!'); sound.bad();
     if (P().cpu){ await sleep(1700); nextTurn(); }
     return;
   }
@@ -789,7 +799,7 @@ $('rematch').addEventListener('click', () => { stopParty(); $('overBox').hidden 
 $('overNew').addEventListener('click', () => { stopParty(); $('overBox').hidden = true; renderSetup(); $('setup').hidden = false; });
 $('btnRoll').addEventListener('click', () => { if (!P().cpu) doRoll(); });
 $('btnBank').addEventListener('click', () => { if (!P().cpu) doBank(); });
-$('tray').addEventListener('click', e => { if (!e.target.closest('.die') && S && S.phase==='farkle' && !P().cpu && !busy) nextTurn(); });
+$('tray').addEventListener('click', e => { if (!e.target.closest('.die') && S && S.phase==='bust' && !P().cpu && !busy) nextTurn(); });
 ['setup','rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id===id && S) $(id).hidden = true; }));
 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S && S.rolled){ scatter(); render(); } }, 150); });
@@ -804,7 +814,7 @@ function start(data){
   if (saved){
     S = saved.S; if (saved.cfg) cfg = saved.cfg;
     S.keptLog = S.keptLog || [];
-    if (S.phase === 'farkle' && P().cpu) { render(); setTimeout(nextTurn, 800); }
+    if (S.phase === 'bust' && P().cpu) { render(); setTimeout(nextTurn, 800); }
     else if (S.phase === 'over'){ render(); }
     else { if (S.rolled && P().cpu){ S.dice.forEach(d=>d.sel=false); } render(); if (P().cpu){ S.rolled=false; S.phase='ready'; S.dice.forEach(d=>{ if(d.st==='free') d.sel=false; }); render(); maybeCpu(); } }
   } else {

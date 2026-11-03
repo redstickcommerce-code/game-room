@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Game Room">
 <meta name="theme-color" content="#1a0b3d">
-<meta name="description" content="Classic games for phone and iPad: Checkers, Backgammon, Farkle, Mancala, Dots & Boxes.">
+<meta name="description" content="Classic games for phone and iPad: Checkers, Backgammon, Hot Dice, Mancala, Dots &amp; Boxes, Dominoes, Chess, Slide &amp; Bump, Cribbage and Gin Rummy.">
 <title>Game Room</title>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
@@ -212,8 +212,8 @@ const GAMES = [
    blurb: 'Jump, capture, and race for the back row to get crowned. Multi-jumps and kings included.'},
   {id: 'backgammon', title: 'Backgammon',    theme: '#6a24c9', pop: '#c6f432', chips: ['2 players', 'vs Computer', 'Dice'],
    blurb: 'Roll, run and hit. Bring all fifteen checkers home and bear them off before your opponent does.'},
-  {id: 'farkle',     title: 'Farkle',        theme: '#2b46c0', pop: '#f5a21d', chips: ['1–6 players', 'vs Computer', 'Dice'],
-   blurb: 'Push-your-luck dice. Keep the scorers and roll again, or bank your points before you Farkle.'},
+  {id: 'hotdice',    title: 'Hot Dice',      theme: '#2b46c0', pop: '#f5a21d', chips: ['1–6 players', 'vs Computer', 'Dice'],
+   blurb: 'Push-your-luck dice. Keep the scorers and roll again, or bank your points before you bust.'},
   {id: 'mancala',    title: 'Mancala',       theme: '#1f6b52', pop: '#e0b45a', chips: ['2 players', 'vs Computer'],
    blurb: 'Sow stones around the board, land in your store for a free turn, and capture across the row.'},
   {id: 'dots',       title: 'Dots & Boxes',  theme: '#e0541d', pop: '#ffe14d', chips: ['2 players', 'vs Computer'],
@@ -355,7 +355,7 @@ syncSound();
 window.addEventListener('pageshow', () => $('launch').classList.remove('go'));
 
 // start on the last game played
-const lastId = store.get('last', GAMES[0].id);
+const lastId = {farkle: 'hotdice'}[store.get('last', '')] || store.get('last', GAMES[0].id);   // farkle was renamed
 const start = Math.max(0, GAMES.findIndex(g => g.id === lastId));
 requestAnimationFrame(() => { go(start, true); });
 })();
