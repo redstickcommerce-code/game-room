@@ -16,6 +16,7 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | Slide & Bump | 2–4, any mix of people and computer (Easy / Medium / Hard) | Card-driven pawn race: slides, bumps, a split 7, backward 4, swap on 11 |
 | Cribbage | 2, or vs Computer (Easy / Medium / Hard) | Full rules: crib, starter and his heels, pegging with go and last card, the show with nobs and flushes. Play to 121 or 61, with skunks |
 | Gin Rummy | 2, or vs Computer (Easy / Medium / Hard) | Upcard offer, knocking at 10, gin bonus, lay-offs, undercuts, dead hands; play to 100, 150 or 250 with game, box and shutout bonuses |
+| Yacht | 1–4, any mix of people and computer (Easy / Medium / Hard) | Five-dice scorecard game: upper bonus, extra-Yacht bonus and joker rule |
 
 Each game saves the game in progress to the browser, so closing the tab doesn't lose it.
 
