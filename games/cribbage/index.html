@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f3a26">
+<title>Cribbage</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, pegboard, felt table, your hand, action row.
+   Landscape = pegboard, table and hand on the left; side rail on the right. */
+:root{
+  --bg1:#1f6b45; --bg2:#0b2a1b;
+  --muted:#d3f0de; --panel:rgba(0,30,15,.4); --line:rgba(211,240,222,.6);
+  --accent:#ffd23f; --accent-2:#e0a800; --accent-ink:#3a1c00;
+  --p0:#ff5a5a; --p1:#4aa3ff;
+  --cw:clamp(44px,min(14vw,9.5vh),84px);
+}
+.page{height:100%;display:grid;gap:10px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"top" "players" "status" "pegs" "table" "hand" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.status{grid-area:status}
+.pegs{grid-area:pegs;border-radius:14px;background:linear-gradient(180deg,#b9824a,#8a5a2b);padding:6px 8px;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),0 8px 20px rgba(0,0,0,.35)}
+.pegs svg{width:100%;height:auto;display:block;max-height:22vh}
+.table{grid-area:table;min-height:0;border-radius:18px;position:relative;overflow:hidden;
+  background:radial-gradient(90% 90% at 50% 40%,#23784d,#155234);box-shadow:inset 0 0 0 5px #5a3518,0 14px 30px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:10px;gap:6px}
+.hand{grid-area:hand;display:flex;justify-content:center;gap:6px;flex-wrap:nowrap;padding:6px 0 4px;min-height:calc(var(--cw) * 1.4 + 14px)}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center}
+.actions .btn{flex:1;max-width:220px}
+.actions #btnMain{flex:2}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(250px,30vw,340px);
+    grid-template-rows:auto auto auto auto minmax(0,1fr) auto;
+    grid-template-areas:"pegs top" "table players" "table status" "table actions" "table ." "hand ."}
+  .players{grid-template-columns:1fr}
+  .actions .btn,.actions #btnMain{max-width:none}
+  :root{--cw:clamp(40px,min(9vw,12vh),84px)}
+}
+@media (orientation:landscape) and (min-width:700px) and (max-height:520px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(300px,40vw,400px);gap:6px}
+  .topbar .logo,.topbar .wide,.pcard .swatch{display:none}
+  .topbar{justify-content:space-between;flex-wrap:nowrap}
+  .players{grid-template-columns:1fr 1fr}
+  .pcard{padding:4px 10px}
+  .status{font-size:15px;letter-spacing:.02em}
+  .btn{min-height:40px}
+  .table{padding:6px}
+}
+.swatch.p0{background:var(--p0)} .swatch.p1{background:var(--p1)}
+
+/* Cards */
+.cardf{--w:var(--cw);width:var(--w);height:calc(var(--w) * 1.4);border-radius:calc(var(--w) * .1);flex:none;position:relative;padding:0;
+  background:#fffdf7;border:1px solid #b9b2a0;box-shadow:0 2px 4px rgba(0,0,0,.35);color:#1c1c1c;font-family:var(--f-ui);font-weight:700;
+  transition:transform .15s ease,box-shadow .15s ease}
+.cardf.red{color:#c8202f}
+.cardf .tl{position:absolute;left:7%;top:4%;line-height:.95;font-size:calc(var(--w) * .3);text-align:center}
+.cardf .tl i{display:block;font-style:normal;font-size:.8em}
+.cardf .big{position:absolute;right:8%;bottom:4%;font-size:calc(var(--w) * .52);line-height:1}
+.cardf.back{background:repeating-linear-gradient(45deg,#a3263a 0 5px,#8a1c2e 5px 10px);border:3px solid #fffdf7}
+.cardf.sm{--w:calc(var(--cw) * .62)}
+.cardf.xs{--w:calc(var(--cw) * .5)}
+button.cardf{cursor:pointer}
+.cardf.sel{transform:translateY(-16%);box-shadow:0 0 0 3px var(--accent),0 8px 14px rgba(0,0,0,.4)}
+.cardf.can{box-shadow:0 0 0 3px var(--accent),0 2px 4px rgba(0,0,0,.35)}
+.cardf.off{filter:brightness(.6)}
+.cardf.new{animation:deal .3s cubic-bezier(.3,1.4,.5,1)}
+@keyframes deal{from{transform:translateY(-30%) scale(1.15);opacity:0}}
+.cardf.mine{box-shadow:0 0 0 2px var(--p0),0 2px 4px rgba(0,0,0,.35)}
+.cardf.theirs{box-shadow:0 0 0 2px var(--p1),0 2px 4px rgba(0,0,0,.35)}
+
+.oppRow{display:flex;gap:4px;align-items:center;min-height:calc(var(--cw) * .7)}
+.oppRow .cardf{margin-left:calc(var(--cw) * -.22)}
+.oppRow .cardf:first-child{margin-left:0}
+.mid{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4vw,30px);width:100%;flex:1;min-height:0}
+.spot{display:flex;flex-direction:column;align-items:center;gap:4px}
+.lbl{font-family:var(--f-ui);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.pile{display:flex;align-items:center;min-width:calc(var(--cw) * 1.2);min-height:calc(var(--cw) * 1.4)}
+.pile .cardf{margin-left:calc(var(--cw) * -.6)}
+.pile .cardf:first-child{margin-left:0}
+.count{font-family:var(--f-display);font-size:clamp(22px,5vmin,40px);line-height:1;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+.slot{width:var(--cw);height:calc(var(--cw) * 1.4);border-radius:calc(var(--cw) * .1);border:2px dashed rgba(255,255,255,.35)}
+.slot.sm{width:calc(var(--cw) * .62);height:calc(var(--cw) * .868)}
+.stack{position:relative}
+.stack .cardf + .cardf{position:absolute;left:3px;top:-3px}
+
+.peg{transition:transform .5s cubic-bezier(.3,1.2,.5,1)}
+
+/* Show dialog */
+.showCards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 10px}
+.showCards .plus{align-self:center;font-family:var(--f-display);font-size:22px;color:var(--muted)}
+.tally{list-style:none;margin:0;padding:0;font-family:var(--f-ui);font-size:19px;font-weight:600}
+.tally li{display:flex;justify-content:space-between;gap:10px;padding:5px 2px;border-bottom:1px solid rgba(255,255,255,.15)}
+.tally li.tot{border:none;font-family:var(--f-display);font-weight:400;font-size:24px;color:var(--accent)}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion: reduce){ .peg,.cardf{transition:none} .cardf.new{animation:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">CRIBBAGE</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" aria-label="Players">
+    <div class="pcard" id="card1"><span class="swatch p1"></span><div class="who"><div class="nm" id="name1"></div><div class="sub" id="sub1"></div></div><div class="num" id="score1">0</div></div>
+    <div class="pcard" id="card0"><span class="swatch p0"></span><div class="who"><div class="nm" id="name0"></div><div class="sub" id="sub0"></div></div><div class="num" id="score0">0</div></div>
+  </section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="pegs" aria-hidden="true"><svg id="pegSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+  <div class="table" id="table">
+    <div class="oppRow" id="oppRow" aria-label="Opponent's cards"></div>
+    <div class="mid">
+      <div class="spot"><div id="starter"></div><div class="lbl">Starter</div></div>
+      <div class="spot"><div class="pile" id="pile"></div><div class="count" id="count"></div></div>
+      <div class="spot"><div id="crib"></div><div class="lbl" id="cribLbl">Crib</div></div>
+    </div>
+  </div>
+
+  <div class="hand" id="hand" aria-label="Your cards"></div>
+
+  <div class="actions">
+    <button class="btn" id="btnNew" type="button">New</button>
+    <button class="btn primary" id="btnMain" type="button">TO CRIB</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New game</h2>
+    <p class="sub">Two players, a crib, and the first to the end of the board wins.</p>
+    <h4>Opponent</h4>
+    <div class="seg" id="segMode"><button type="button" data-v="cpu">Computer</button><button type="button" data-v="2p">Friend</button></div>
+    <div id="levelWrap">
+      <h4>Difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <h4>Play to</h4>
+    <div class="seg" id="segTarget"><button type="button" data-v="121">121</button><button type="button" data-v="61">61</button></div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>Each player gets 6 cards and puts 2 face down into the <b>crib</b>. The crib belongs to the dealer, and the deal alternates every hand.</li>
+      <li>The top card of the deck is turned up as the <b>starter</b>. If it's a Jack, the dealer pegs 2 (<i>his heels</i>).</li>
+      <li><b>The play:</b> starting with the non-dealer, take turns laying a card and calling the running total, which can't go past 31. Face cards count 10 and Aces 1.</li>
+      <li>During the play you score for making the count <b>15</b> (2) or <b>31</b> (2), for a <b>pair</b> with the last card (2; three of a kind 6, four 12), and for a <b>run</b> of 3 or more among the latest cards, in any order (1 per card).</li>
+      <li>If you can't play without passing 31, you say <b>go</b>. Your opponent keeps playing if they can, and whoever plays the last card before the count restarts pegs 1 (2 for exactly 31). The last card of the hand also scores 1.</li>
+      <li><b>The show:</b> each hand counts with the starter: every combination adding to 15 scores 2, each pair 2, each run 1 per card, four cards of one suit 4 (5 with the starter), and the Jack matching the starter's suit 1 (<i>nobs</i>). The non-dealer counts first, then the dealer, then the dealer's crib. A crib flush needs all five cards.</li>
+      <li>The first player to reach 121 (or 61 in a short game) wins, even in the middle of a hand. Win before your opponent passes 90 and it's a <b>skunk</b>.</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="veil" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="veilTitle">
+    <h2 id="veilTitle">Your turn</h2>
+    <p class="sub">Pass the iPad over, then show your cards.</p>
+    <button class="btn primary big go" id="btnVeil" type="button">SHOW MY CARDS</button>
+  </div>
+</div>
+
+<div class="overlay" id="showBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="showTitle">
+    <h2 id="showTitle">Your hand</h2>
+    <div class="showCards" id="showCards"></div>
+    <ul class="tally" id="tally"></ul>
+    <button class="btn primary big go" id="btnShowNext" type="button">NEXT</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
+    <a class="btn go" href="../../index.html" style="width:100%">Home</a>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('cribbage');
+
+/* ---------- Engine ----------
+   A card is 0..51: rank = c % 13 + 1 (Ace 1 .. King 13), suit = floor(c / 13). */
+const rank = c => c % 13 + 1, suit = c => Math.floor(c / 13), val = c => Math.min(10, rank(c));
+const RN = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const SU = ['♠', '♥', '♦', '♣'];
+const cardName = c => RN[rank(c)] + SU[suit(c)];
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const freshDeck = () => shuffle([...Array(52).keys()]);
+
+/* Score a hand of 4 (plus the starter, if given) in the show. Returns {items: [[label, pts]], total}. */
+function scoreHand(hand, starter, crib){
+  const all = starter == null ? hand.slice() : hand.concat([starter]), n = all.length, items = [];
+  let f = 0;
+  for (let m = 1; m < 1 << n; m++){ let s = 0; for (let i = 0; i < n; i++) if (m & 1 << i) s += val(all[i]); if (s === 15) f++; }
+  if (f) items.push([f === 1 ? 'Fifteen' : `Fifteens ×${f}`, 2 * f]);
+  const cnt = Array(15).fill(0);
+  all.forEach(c => cnt[rank(c)]++);
+  for (let r = 1; r <= 13; r++) if (cnt[r] >= 2) items.push([['', '', 'Pair', 'Three of a kind', 'Four of a kind'][cnt[r]] + ` (${RN[r]}s)`, [0, 0, 2, 6, 12][cnt[r]]]);
+  for (let r = 1; r <= 13;){
+    if (!cnt[r]){ r++; continue; }
+    let e = r, mult = 1;
+    while (e <= 13 && cnt[e]){ mult *= cnt[e]; e++; }
+    const len = e - r;
+    if (len >= 3) items.push([`Run of ${len}` + (mult > 1 ? ` ×${mult}` : ''), len * mult]);
+    r = e;
+  }
+  if (hand.length === 4 && hand.every(c => suit(c) === suit(hand[0]))){
+    const five = starter != null && suit(starter) === suit(hand[0]);
+    if (five) items.push(['Flush of 5', 5]); else if (!crib) items.push(['Flush', 4]);
+  }
+  if (starter != null && hand.some(c => rank(c) === 11 && suit(c) === suit(starter))) items.push(['Nobs (Jack of the starter suit)', 1]);
+  return {items, total: items.reduce((a, b) => a + b[1], 0)};
+}
+/* Points for the card just played. run = the cards since the count last restarted, latest last. */
+function pegScore(run, count){
+  const items = [];
+  if (count === 15) items.push(['Fifteen', 2]);
+  if (count === 31) items.push(['Thirty-one', 2]);
+  const r = rank(run[run.length - 1]);
+  let k = 1;
+  for (let i = run.length - 2; i >= 0 && rank(run[i]) === r; i--) k++;
+  if (k >= 2) items.push([['', '', 'Pair', 'Three of a kind', 'Four of a kind'][k], [0, 0, 2, 6, 12][k]]);
+  for (let L = run.length; L >= 3; L--){
+    const rs = run.slice(-L).map(rank).sort((a, b) => a - b);
+    if (rs.every((x, i) => i === 0 || x === rs[i - 1] + 1)){ items.push([`Run of ${L}`, L]); break; }
+  }
+  return {items, total: items.reduce((a, b) => a + b[1], 0)};
+}
+
+/* ---------- Computer ----------
+   Discards: easy is random half the time; medium keeps the four cards worth most on their own and guesses at the crib;
+   hard averages the kept hand over every possible starter. Pegging: easy is random, medium takes the most points and
+   avoids leaving 5 or 21, hard subtracts what the opponent could score back with any unseen card. */
+function cribGuess(two){
+  const [a, b] = two;
+  let v = 0;
+  if (val(a) + val(b) === 15) v += 2;
+  if (rank(a) === rank(b)) v += 2;
+  if (Math.abs(rank(a) - rank(b)) === 1) v += .8;
+  if (Math.abs(rank(a) - rank(b)) === 2) v += .4;
+  two.forEach(c => { if (rank(c) === 5) v += 1.2; if (rank(c) === 11) v += .25; });
+  if (suit(a) === suit(b)) v += .2;
+  return v + 3.5;   // a typical crib has a few more points from the other cards and the starter
+}
+function chooseDiscard(hand, mine, level){
+  const opts = [];
+  for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++){
+    opts.push({out: [hand[i], hand[j]], keep: hand.filter((_, k) => k !== i && k !== j)});
+  }
+  if (level === 'easy' && Math.random() < .5) return opts[Math.floor(Math.random() * opts.length)].out;
+  const unseen = [...Array(52).keys()].filter(c => !hand.includes(c));
+  let best = null, bv = -Infinity;
+  for (const o of opts){
+    let h;
+    if (level === 'hard'){ h = 0; for (const s of unseen) h += scoreHand(o.keep, s, false).total; h /= unseen.length; }
+    else h = scoreHand(o.keep, null, false).total + 1.5;
+    const v = h + (mine ? 1 : -1) * cribGuess(o.out) + Math.random() * .01;
+    if (v > bv){ bv = v; best = o; }
+  }
+  return best.out;
+}
+function choosePeg(hand, run, count, seen, oppLeft, level){
+  const legal = hand.filter(c => count + val(c) <= 31);
+  if (level === 'easy') return legal[Math.floor(Math.random() * legal.length)];
+  const unseen = [...Array(52).keys()].filter(c => !seen.includes(c) && !hand.includes(c));
+  let best = null, bv = -Infinity;
+  for (const c of legal){
+    const n = count + val(c), r2 = run.concat([c]);
+    let v = pegScore(r2, n).total * 10 + val(c) * .05;
+    if (level === 'medium'){ if (n === 5 || n === 21) v -= 4; if (r2.length >= 1 && n < 31 && legal.length > 1 && hand.some(x => x !== c && rank(x) === rank(c))) v += 1; }
+    else if (oppLeft){
+      let risk = 0, k = 0;
+      for (const u of unseen){ if (n + val(u) > 31) continue; risk += pegScore(r2.concat([u]), n + val(u)).total; k++; }
+      v -= 10 * risk / Math.max(1, unseen.length) * Math.min(1, oppLeft * 1.5);
+      if (!k && n < 31) v += 3;   // they can't answer, so the go is ours
+      if (hand.some(x => x !== c && rank(x) === rank(c))) v += 1.5;   // a pair back would make three of a kind
+    }
+    v += Math.random() * .01;
+    if (v > bv){ bv = v; best = c; }
+  }
+  return best;
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({mode: 'cpu', level: 'medium', target: 121}, store.get('cfg', {}));
+let S = null, sel = [], gen = 0, thinking = false, fresh = null;
+const isCpu = p => S.mode === 'cpu' && p === 1;
+const names = () => S.mode === 'cpu' ? ['You', 'Computer'] : ['Player 1', 'Player 2'];
+const save = () => store.set('game', S);
+const pone = () => 1 - S.dealer;
+
+function blankGame(){
+  return {mode: cfg.mode, level: cfg.level, target: +cfg.target, scores: [0, 0], back: [0, 0], dealer: Math.random() < .5 ? 0 : 1,
+    phase: 'none', hands: [[], []], kept: [[], []], crib: [], starter: null, peg: null, show: null, note: '', seen: -1, over: false};
+}
+function newGame(){
+  gen++; stopConfetti(); thinking = false;
+  S = blankGame();
+  ['overBox', 'showBox', 'veil'].forEach(id => $(id).hidden = true);
+  newHand(true);
+}
+function newHand(first){
+  if (!first) S.dealer = 1 - S.dealer;
+  const deck = freshDeck();
+  S.hands = [deck.splice(0, 6), deck.splice(0, 6)];
+  S.deck = deck; S.crib = []; S.starter = null; S.kept = [[], []]; S.show = null; S.peg = null;
+  S.phase = 'discard'; S.discarded = [false, false]; S.note = first ? `${names()[S.dealer]} ${S.dealer === 0 && S.mode === 'cpu' ? 'deal' : 'deals'} first` : '';
+  sel = []; sortHands();
+  for (const p of [0, 1]) if (isCpu(p)) discard(p, chooseDiscard(S.hands[p], S.dealer === p, S.level));
+  save(); render(); prompt();
+}
+function sortHands(){ S.hands.forEach(h => h.sort((a, b) => rank(a) - rank(b) || suit(a) - suit(b))); }
+/* Whose cards are on screen. With a friend, it's whoever is acting, once they've tapped through the veil. */
+function actor(){
+  if (S.phase === 'discard') return S.discarded[pone()] ? S.dealer : pone();
+  if (S.phase === 'peg') return S.peg.turn;
+  return -1;
+}
+const viewer = () => S.mode === 'cpu' ? 0 : (S.seen >= 0 ? S.seen : 0);
+const hidden = () => S.mode === '2p' && actor() >= 0 && S.seen !== actor();
+function prompt(){
+  if (S.over) return;
+  const a = actor();
+  if (a < 0) return;
+  if (isCpu(a)){ if (S.phase === 'peg') cpuPeg(); return; }
+  if (S.mode === '2p' && S.seen !== a){
+    $('veilTitle').textContent = names()[a] + (S.phase === 'discard' ? ': discard' : "'s turn");
+    $('veil').hidden = false;
+  }
+}
+
+function discard(p, two){
+  S.hands[p] = S.hands[p].filter(c => !two.includes(c));
+  S.crib.push(...two); S.discarded[p] = true;
+}
+function humanDiscard(){
+  const p = actor();
+  if (S.phase !== 'discard' || isCpu(p) || sel.length !== 2 || hidden()) return;
+  discard(p, sel); sel = []; sound.place();
+  if (S.discarded[0] && S.discarded[1]) cut();
+  else { save(); render(); prompt(); }
+}
+function cut(){
+  S.starter = S.deck.pop();
+  S.kept = [S.hands[0].slice(), S.hands[1].slice()];
+  S.phase = 'peg';
+  S.peg = {turn: pone(), count: 0, run: [], played: [], last: -1};
+  S.note = '';
+  sound.click();
+  if (rank(S.starter) === 11){
+    S.note = `His heels: ${names()[S.dealer]} +2`;
+    if (addPoints(S.dealer, 2, 'HIS HEELS +2')) return;
+  }
+  save(); render(); prompt();
+}
+/* Move a player's pegs. Returns true if that wins the game. */
+function addPoints(p, n, label){
+  if (!n) return false;
+  S.back[p] = S.scores[p];
+  S.scores[p] = Math.min(S.target, S.scores[p] + n);
+  if (label){ callout(label); }
+  sound.good();
+  if (S.scores[p] >= S.target){ finish(p); return true; }
+  return false;
+}
+const canPlay = p => S.hands[p].some(c => S.peg.count + val(c) <= 31);
+function playCard(p, c){
+  const g = S.peg, o = 1 - p, n = names();
+  S.hands[p] = S.hands[p].filter(x => x !== c);
+  g.run.push(c); g.played.push({c, p}); g.count += val(c); g.last = p; fresh = c;
+  sound.place();
+  const sc = pegScore(g.run, g.count);
+  S.note = `${n[p]}: ${cardName(c)} for ${g.count}` + (sc.total ? ` · ${sc.items.map(i => i[0].toLowerCase()).join(', ')} ${sc.total}` : '');
+  if (addPoints(p, sc.total, sc.total ? `${sc.items.map(i => i[0] === 'Fifteen' ? '15' : i[0] === 'Thirty-one' ? '31' : i[0].toUpperCase()).join(' + ')} · ${sc.total}` : '')) return;
+  const reset = () => { g.count = 0; g.run = []; };
+  if (g.count === 31){ reset(); g.turn = S.hands[o].length ? o : p; }
+  else if (canPlay(o)) g.turn = o;
+  else if (canPlay(p)){
+    g.turn = p;
+    if (S.hands[o].length){   // the other player says go; the points callout, if any, takes priority
+      const who = S.mode === 'cpu' ? (o === 0 ? 'YOU SAY' : 'COMPUTER SAYS') : names()[o].toUpperCase() + ' SAYS';
+      S.note += ` · ${who.toLowerCase()} go`;
+      if (!sc.total) callout(who + ' GO');
+    }
+  }
+  else {
+    const lastCard = !S.hands[0].length && !S.hands[1].length;
+    S.note += ` · ${lastCard ? 'last card' : 'go'} 1`;
+    const g0 = gen;
+    setTimeout(() => { if (g0 === gen) callout(lastCard ? 'LAST CARD · 1' : 'GO · 1'); }, sc.total ? 1100 : 0);
+    S.back[p] = S.scores[p]; S.scores[p] = Math.min(S.target, S.scores[p] + 1);
+    if (S.scores[p] >= S.target){ finish(p); return; }
+    reset(); g.turn = S.hands[o].length ? o : p;
+  }
+  if (!S.hands[0].length && !S.hands[1].length){
+    S.phase = 'counting'; save(); render();
+    const g0 = gen;
+    setTimeout(() => { if (g0 === gen) startShow(); }, 1400);
+    return;
+  }
+  save(); render(); prompt();
+}
+async function cpuPeg(){
+  const g = gen, p = S.peg.turn;
+  thinking = true; render();
+  await sleep(850);
+  if (g !== gen || S.phase !== 'peg' || S.peg.turn !== p) return;
+  thinking = false;
+  const seen = S.peg.played.map(x => x.c).concat([S.starter]);
+  playCard(p, choosePeg(S.hands[p], S.peg.run, S.peg.count, seen, S.hands[1 - p].length, S.level));
+}
+function tapCard(c){
+  if (S.over || hidden()) return;
+  const a = actor();
+  if (a < 0 || isCpu(a)) return;
+  if (S.phase === 'discard'){
+    if (sel.includes(c)) sel = sel.filter(x => x !== c);
+    else if (sel.length < 2) sel.push(c);
+    else sel = [sel[1], c];
+    sound.click(); render();
+  } else if (S.phase === 'peg'){
+    if (S.peg.count + val(c) > 31){ sound.click(); callout('OVER 31'); return; }
+    playCard(a, c);
+  }
+}
+
+/* The show: non-dealer's hand, dealer's hand, then the crib. Each step pegs its points as it opens. */
+function startShow(){
+  S.phase = 'show'; S.show = {step: 0, pegged: -1};
+  save(); showStep();
+}
+function showWho(step){ return step === 0 ? pone() : S.dealer; }
+function showStep(){
+  const st = S.show, p = showWho(st.step), n = names(), crib = st.step === 2;
+  const cards = crib ? S.crib : S.kept[p];
+  const sc = scoreHand(cards, S.starter, crib);
+  const whose = S.mode === 'cpu' && p === 0 ? 'Your' : n[p] + "'s";
+  $('showTitle').textContent = `${whose} ${crib ? 'crib' : 'hand'}`;
+  $('showCards').innerHTML = cards.slice().sort((a, b) => rank(a) - rank(b)).map(c => cardHtml(c, 'sm')).join('') +
+    '<span class="plus">+</span>' + cardHtml(S.starter, 'sm');
+  $('tally').innerHTML = (sc.items.length ? sc.items.map(i => `<li><span>${i[0]}</span><span>${i[1]}</span></li>`).join('') : '<li><span>Nineteen (nothing)</span><span>0</span></li>') +
+    `<li class="tot"><span>Total</span><span>${sc.total}</span></li>`;
+  let won = false;
+  if (st.pegged < st.step){
+    st.pegged = st.step;
+    if (sc.total){ S.back[p] = S.scores[p]; S.scores[p] = Math.min(S.target, S.scores[p] + sc.total); sound.good(); }
+    if (S.scores[p] >= S.target) won = true;
+  }
+  $('btnShowNext').textContent = won || S.over ? 'SEE RESULT' : st.step < 2 ? 'NEXT' : 'NEXT HAND';
+  $('showBox').hidden = false;
+  if (won){ S.over = true; S.winner = p; }
+  save(); render();
+}
+$('btnShowNext').addEventListener('click', () => {
+  $('showBox').hidden = true;
+  if (S.over){ finish(S.winner); return; }
+  if (S.show.step < 2){ S.show.step++; showStep(); }
+  else newHand(false);
+});
+function finish(w){
+  S.over = true; S.phase = 'over'; S.winner = w;
+  save(); render();
+  const g = gen, n = names(), lose = S.scores[1 - w], skunk = lose < S.target - 30;
+  setTimeout(() => {
+    if (g !== gen) return;
+    $('overTitle').textContent = (S.mode === 'cpu' ? (w === 0 ? 'You win' : 'Computer wins') : n[w] + ' wins') + (skunk ? ' · Skunk!' : '');
+    $('overSub').textContent = `${n[0]} ${S.scores[0]}, ${n[1]} ${S.scores[1]}.`;
+    $('overBox').hidden = false;
+    if (isCpu(w)) sound.bad();
+    else { sound.win(); confetti(['#ff5a5a', '#4aa3ff', '#ffd23f', '#fffdf7']); }
+  }, 900);
+}
+
+/* ---------- Drawing ---------- */
+function cardHtml(c, cls, tag){
+  if (c == null) return `<div class="cardf back ${cls || ''}"></div>`;
+  const red = suit(c) === 1 || suit(c) === 2, t = tag || 'div';
+  return `<${t} class="cardf ${red ? 'red' : ''} ${cls || ''}" ${t === 'button' ? `type="button" data-c="${c}" aria-label="${RN[rank(c)]} of ${['spades', 'hearts', 'diamonds', 'clubs'][suit(c)]}"` : ''}>` +
+    `<span class="tl">${RN[rank(c)]}<i>${SU[suit(c)]}</i></span><span class="big">${SU[suit(c)]}</span></${t}>`;
+}
+/* Pegboard: each player has three rows of 40 holes (out, back, out again), then the finish hole. */
+const ROW_Y = [[.6, 1.5, 2.4], [3.9, 4.8, 5.7]];   // opponent's lane on top, yours below
+const hx = i => i + Math.floor(i / 5) * .55;
+function holeXY(lane, s){
+  const ys = ROW_Y[lane];
+  if (s <= 0) return [-1.6, ys[1]];
+  if (s >= 121) return [hx(39) + 1.7, ys[1]];
+  const i = s - 1, row = Math.floor(i / 40), k = i % 40;
+  return [hx(row === 1 ? 39 - k : k), ys[row]];
+}
+function buildPegboard(){
+  const svg = $('pegSvg'), W = hx(39) + 3.6, H = 6.3;
+  svg.setAttribute('viewBox', `-2.4 0 ${W + 1.2} ${H}`);
+  let o = '';
+  [0, 1].forEach(lane => {
+    const p = lane === 1 ? 0 : 1, col = p === 0 ? 'var(--p0)' : 'var(--p1)';
+    o += `<rect x="-2.2" y="${ROW_Y[lane][0] - .42}" width="${W + .8}" height="2.64" rx=".4" fill="${col}" opacity=".18"/>`;
+    for (let s = 1; s <= 120; s++){ const [x, y] = holeXY(lane, s); o += `<circle cx="${x}" cy="${y}" r=".16" fill="#3b2410"/>`; }
+    const [sx, sy] = holeXY(lane, 0), [fx, fy] = holeXY(lane, 121);
+    o += `<circle cx="${sx}" cy="${sy}" r=".24" fill="#3b2410"/><circle cx="${fx}" cy="${fy}" r=".3" fill="#3b2410" stroke="#ffd23f" stroke-width=".08"/>`;
+  });
+  [0, 1].forEach(p => {
+    const col = p === 0 ? 'var(--p0)' : 'var(--p1)';
+    o += `<g class="peg" id="pegB${p}"><circle r=".3" fill="${col}" stroke="#2a1500" stroke-width=".07" opacity=".7"/></g>`;
+    o += `<g class="peg" id="pegF${p}"><circle r=".34" fill="${col}" stroke="#2a1500" stroke-width=".08"/><circle cx="-.09" cy="-.1" r=".1" fill="#fff" opacity=".6"/></g>`;
+  });
+  svg.innerHTML = o;
+}
+function renderPegs(){
+  [0, 1].forEach(p => {
+    const lane = p === 0 ? 1 : 0;
+    const [fx, fy] = holeXY(lane, S.scores[p]), [bx, by] = holeXY(lane, S.back[p]);
+    $('pegF' + p).style.transform = `translate(${fx}px,${fy}px)`;
+    $('pegB' + p).style.transform = `translate(${bx}px,${by}px)`;
+  });
+}
+function statusHtml(){
+  const n = names(), a = actor();
+  if (S.phase === 'over') return `<b>${S.mode === 'cpu' && S.winner === 0 ? 'You win' : n[S.winner] + ' wins'}</b>`;
+  if (S.phase === 'show' || S.phase === 'counting') return '<b>The show</b> · counting hands';
+  if (a < 0) return '';
+  if (isCpu(a)) return `<span class="${thinking ? 'thinking' : ''}">${S.note ? S.note + ' · ' : ''}Computer's turn</span>`;
+  const you = S.mode === 'cpu' ? 'Your' : n[a] + "'s", lead = `<b>${you} ${S.phase === 'discard' ? 'discard' : 'turn'}</b>`;
+  if (S.phase === 'discard'){
+    const whose = S.dealer === a ? (S.mode === 'cpu' ? 'your' : 'your own') : (S.mode === 'cpu' ? "the computer's" : "your opponent's");
+    return `${lead} · ${S.note ? S.note + ' · ' : ''}pick 2 for ${whose} crib`;
+  }
+  return `${lead} · ${S.note || 'lead any card'}`;
+}
+function render(){
+  const n = names();
+  [0, 1].forEach(p => {
+    $('name' + p).textContent = n[p];
+    $('score' + p).textContent = S.scores[p];
+    $('card' + p).classList.toggle('on', S.phase === 'over' ? S.winner === p : actor() === p);
+    $('sub' + p).textContent = (S.dealer === p ? 'Dealer · crib' : 'Pone') + (p === 1 && S.mode === 'cpu' ? ' · ' + S.level : '');
+  });
+  $('status').innerHTML = statusHtml();
+  renderPegs();
+
+  const me = S.mode === 'cpu' ? 0 : (actor() >= 0 ? actor() : viewer()), them = 1 - me, hide = hidden();
+  // opponent's cards, face down
+  $('oppRow').innerHTML = S.hands[them].map(() => cardHtml(null, 'xs')).join('') || '<div class="slot sm" style="opacity:0"></div>';
+  // starter, pile, crib
+  $('starter').innerHTML = S.starter == null ? `<div class="stack">${cardHtml(null)}${cardHtml(null)}</div>` : cardHtml(S.starter);
+  const run = S.peg ? S.peg.run : [];
+  const owner = c => S.peg.played.find(x => x.c === c).p;
+  $('pile').innerHTML = run.length ? run.map(c => cardHtml(c, (owner(c) === me ? 'mine' : 'theirs') + (c === fresh ? ' new' : ''))).join('') : '<div class="slot"></div>';
+  fresh = null;
+  $('count').textContent = S.phase === 'peg' || S.phase === 'counting' ? S.peg.count : '';
+  $('crib').innerHTML = S.crib.length ? `<div class="stack">${S.crib.map(() => cardHtml(null)).join('')}</div>` : '<div class="slot"></div>';
+  $('cribLbl').textContent = (S.mode === 'cpu' ? (S.dealer === 0 ? 'Your' : "Computer's") : n[S.dealer] + "'s") + ' crib';
+
+  // your hand
+  const el = $('hand'), mineTurn = actor() === me && !isCpu(me) && !hide;
+  el.innerHTML = '';
+  const shown = S.phase === 'show' || S.phase === 'counting' || S.phase === 'over' ? [] : S.hands[me];
+  shown.forEach(c => {
+    if (hide){ el.insertAdjacentHTML('beforeend', cardHtml(null)); return; }
+    let cls = '';
+    if (S.phase === 'discard' && mineTurn) cls = sel.includes(c) ? 'sel' : '';
+    if (S.phase === 'peg') cls = !mineTurn ? '' : S.peg.count + val(c) <= 31 ? 'can' : 'off';
+    el.insertAdjacentHTML('beforeend', cardHtml(c, cls, 'button'));
+  });
+
+  const main = $('btnMain');
+  if (S.phase === 'discard'){ main.textContent = 'TO CRIB'; main.disabled = !(mineTurn && sel.length === 2); }
+  else { main.textContent = S.phase === 'peg' ? `COUNT ${S.peg.count}` : 'TO CRIB'; main.disabled = true; }
+}
+
+/* ---------- Input ---------- */
+$('hand').addEventListener('click', e => { const b = e.target.closest('button.cardf'); if (b) tapCard(+b.dataset.c); });
+$('btnMain').addEventListener('click', humanDiscard);
+$('btnVeil').addEventListener('click', () => { $('veil').hidden = true; S.seen = actor(); save(); render(); });
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newGame(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnAgain').addEventListener('click', newGame);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.phase !== 'none') $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+
+const syncers = [
+  seg($('segMode'), () => cfg.mode, v => { cfg.mode = v; $('levelWrap').hidden = v !== 'cpu'; }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v),
+  seg($('segTarget'), () => cfg.target, v => cfg.target = +v)
+];
+function syncSetup(){ syncers.forEach(f => f()); $('levelWrap').hidden = cfg.mode !== 'cpu'; }
+
+/* ---------- Boot ---------- */
+buildPegboard();
+const saved = store.get('game', null);
+if (saved && saved.hands && saved.phase && saved.phase !== 'none' && !saved.over){
+  S = saved;
+  if (S.mode === '2p') S.seen = -1;   // hide the hand again after a reload
+  render();
+  if (S.phase === 'show') showStep();
+  else if (S.phase === 'counting') startShow();
+  else prompt();
+} else {
+  S = blankGame();
+  render();
+  syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>
