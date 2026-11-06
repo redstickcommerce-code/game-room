@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Last Card">
+<meta name="theme-color" content="#2b1747">
+<title>Last Card</title>
+<link rel="stylesheet" href="../../assets/kit.css">
+<style>
+/* Layout: portrait = top bar, player cards, status, table, your hand, action row.
+   Landscape = table and hand on the left; side rail on the right. */
+:root{
+  --bg1:#3d2370; --bg2:#140a28;
+  --muted:#ddd2f5; --panel:rgba(20,0,40,.42); --line:rgba(221,210,245,.55);
+  --accent:#ffd23f; --accent-2:#e0a800; --accent-ink:#3a1c00;
+  --cw:clamp(46px,min(15vw,10vh),88px);
+  --c0:#ff6b5e; --c1:#1fb5a8; --c2:#f5b82e; --c3:#9a78ee;
+}
+.page{height:100%;display:grid;gap:10px;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto auto minmax(0,1fr) auto auto;
+  grid-template-areas:"top" "players" "status" "table" "hand" "actions"}
+.topbar{grid-area:top}
+.players{grid-area:players}
+.players.n3,.players.n4{grid-template-columns:1fr 1fr}
+.status{grid-area:status}
+.table{grid-area:table;min-height:0;border-radius:18px;position:relative;overflow:hidden;
+  background:radial-gradient(90% 90% at 50% 40%,#2e2a5e,#18153a);box-shadow:inset 0 0 0 5px #0d0a22,0 14px 30px rgba(0,0,0,.4);
+  display:flex;align-items:center;justify-content:center;gap:clamp(20px,8vw,60px);padding:10px}
+.hand{grid-area:hand;display:flex;justify-content:center;align-items:flex-end;padding:calc(var(--cw) * .28) 4px 4px;min-height:calc(var(--cw) * 1.75 + 10px)}
+.hand .ucard{margin-left:var(--ov,-10px)}
+.hand .ucard:first-child{margin-left:0}
+.actions{grid-area:actions;display:flex;gap:10px;justify-content:center}
+.actions .btn{flex:1;max-width:200px}
+.actions #btnMain{flex:1.4}
+@media (orientation:landscape) and (min-width:700px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(250px,30vw,340px);
+    grid-template-rows:auto auto auto auto minmax(0,1fr) auto;
+    grid-template-areas:"table top" "table players" "table status" "table actions" "table ." "hand ."}
+  .players,.players.n3,.players.n4{grid-template-columns:1fr}
+  .actions{flex-wrap:wrap}
+  .actions .btn,.actions #btnMain{max-width:none}
+  :root{--cw:clamp(40px,min(8vw,13vh),88px)}
+}
+@media (orientation:landscape) and (min-width:700px) and (max-height:520px){
+  .page{grid-template-columns:minmax(0,1fr) clamp(300px,40vw,400px);gap:6px}
+  .topbar .logo,.topbar .wide,.pcard .swatch{display:none}
+  .topbar{justify-content:space-between;flex-wrap:nowrap}
+  .players,.players.n3,.players.n4{grid-template-columns:1fr 1fr}
+  .pcard{padding:4px 10px}
+  .pcard .sub{display:none}
+  .status{font-size:15px;letter-spacing:.02em}
+  .btn{min-height:40px}
+  .table{padding:6px}
+}
+
+/* Cards: a coloured face with a framed centre panel and corner marks */
+.ucard{--w:var(--cw);--k:#888;width:var(--w);height:calc(var(--w) * 1.45);border-radius:calc(var(--w) * .13);flex:none;position:relative;padding:0;border:none;
+  background:var(--k);box-shadow:-2px 2px 5px rgba(0,0,0,.35),inset 0 0 0 calc(var(--w) * .05) #fffaf2;color:#fff;font-family:var(--f-display);
+  transition:transform .15s ease,box-shadow .15s ease}
+.ucard.k0{--k:var(--c0)} .ucard.k1{--k:var(--c1)} .ucard.k2{--k:var(--c2)} .ucard.k3{--k:var(--c3)}
+.ucard.k4{--k:#1d1a2e}
+.ucard .panel{position:absolute;inset:18% 16%;border-radius:calc(var(--w) * .1);background:rgba(255,255,255,.2);border:calc(var(--w) * .03) solid rgba(255,255,255,.75);
+  display:grid;place-items:center;font-size:calc(var(--w) * .42);line-height:1;text-shadow:0 calc(var(--w) * .03) 0 rgba(0,0,0,.3)}
+.ucard .panel.sm{font-size:calc(var(--w) * .3)}
+.ucard .ix{position:absolute;left:9%;top:5%;font-size:calc(var(--w) * .22);line-height:1;text-shadow:0 1px 0 rgba(0,0,0,.3)}
+.ucard .ix.b{left:auto;top:auto;right:9%;bottom:5%;rotate:180deg}
+.ucard.k4 .panel{background:conic-gradient(var(--c0) 0 25%,var(--c1) 0 50%,var(--c2) 0 75%,var(--c3) 0);border-color:#fffaf2}
+.ucard.back{--k:#2b1747;background:repeating-linear-gradient(45deg,#3d2370 0 6px,#2b1747 6px 12px)}
+.ucard.back::after{content:"LAST\A CARD";white-space:pre;position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  font-size:calc(var(--w) * .17);line-height:1.05;color:var(--accent);text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.ucard.sm{--w:calc(var(--cw) * .62)}
+button.ucard{cursor:pointer}
+.ucard.can{transform:translateY(-14%);box-shadow:0 0 0 3px var(--accent),0 8px 12px rgba(0,0,0,.4),inset 0 0 0 calc(var(--w) * .05) #fffaf2}
+.ucard.off{filter:brightness(.55) saturate(.7)}
+.ucard.new{animation:deal .35s cubic-bezier(.3,1.4,.5,1)}
+@keyframes deal{from{transform:translateY(-30%) scale(1.15);opacity:0}}
+.ucard.live{box-shadow:0 0 0 3px var(--accent),0 2px 6px rgba(0,0,0,.4);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 3px rgba(255,210,63,.3),0 2px 6px rgba(0,0,0,.4)}}
+
+.spot{display:flex;flex-direction:column;align-items:center;gap:8px}
+.spot button{background:none;border:none;padding:0}
+.lbl{font-family:var(--f-ui);font-weight:600;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.stack{position:relative}
+.stack .ucard + .ucard{position:absolute;left:3px;top:-3px}
+.pileWrap{position:relative;padding:8px;border-radius:calc(var(--cw) * .2);transition:box-shadow .3s}
+.dir{font-family:var(--f-display);font-size:clamp(20px,5vmin,34px);color:var(--muted);opacity:.8}
+.pcard .num{font-size:clamp(16px,3vmin,24px)}
+.pcard.out{opacity:.6}
+
+.picker{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.picker button{min-height:80px;border-radius:16px;border:3px solid rgba(255,255,255,.8);font-family:var(--f-display);font-size:22px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.3)}
+.restHands{display:flex;flex-direction:column;gap:10px;margin:10px 0;text-align:left}
+.restHands .who{font-family:var(--f-ui);font-weight:700;font-size:18px;display:flex;justify-content:space-between}
+.restHands .row{display:flex;flex-wrap:wrap;gap:4px}
+.standings{list-style:none;padding:0;margin:8px 0 0;font-family:var(--f-ui);font-size:19px;font-weight:600}
+.standings li{display:flex;justify-content:space-between;padding:5px 4px;border-bottom:1px solid rgba(255,255,255,.15)}
+.standings li.top{color:var(--accent)}
+.seatRow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.seatRow .nm{font-family:var(--f-ui);font-weight:700;font-size:19px;min-width:64px}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion: reduce){ .ucard{transition:none} .ucard.new,.ucard.live{animation:none} }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
+    <div class="logo">LAST CARD</div>
+    <div class="btns">
+      <button class="btn" id="btnSound" type="button">♪</button>
+      <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+    </div>
+  </header>
+
+  <section class="players" id="players" aria-label="Players"></section>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <div class="table">
+    <div class="spot"><button type="button" id="deckBtn" aria-label="Draw a card"></button><div class="lbl" id="deckLbl">Draw</div></div>
+    <div class="dir" id="dir" aria-hidden="true">↻</div>
+    <div class="spot"><div class="pileWrap" id="pileWrap"><div id="pile"></div></div><div class="lbl" id="colorLbl"></div></div>
+  </div>
+
+  <div class="hand" id="hand" aria-label="Your cards"></div>
+
+  <div class="actions">
+    <button class="btn" id="btnNew" type="button">New</button>
+    <button class="btn primary" id="btnMain" type="button">DRAW</button>
+    <button class="btn" id="btnCall" type="button">LAST CARD!</button>
+  </div>
+</div>
+
+<div class="overlay" id="setup" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">New game</h2>
+    <p class="sub">Match the colour or the symbol and be the first to empty your hand.</p>
+    <h4>Players</h4>
+    <div class="seg" id="segCount"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div>
+    <h4>Who's playing</h4>
+    <div id="seatRows"></div>
+    <div id="levelWrap">
+      <h4>Computer difficulty</h4>
+      <div class="seg" id="segLevel"><button type="button" data-v="easy">Easy</button><button type="button" data-v="medium">Medium</button><button type="button" data-v="hard">Hard</button></div>
+    </div>
+    <h4>Game length</h4>
+    <div class="seg" id="segTarget"><button type="button" data-v="0">One round</button><button type="button" data-v="250">To 250</button><button type="button" data-v="500">To 500</button></div>
+    <button class="btn primary big go" id="btnStart" type="button">START</button>
+  </div>
+</div>
+
+<div class="overlay" id="rulesBox" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
+    <h2 id="rulesTitle">How to play</h2>
+    <ol class="rules">
+      <li>Everyone gets 7 cards. On your turn, play one card that matches the top card's <b>colour</b> or its <b>number or symbol</b>.</li>
+      <li>If you can't or don't want to play, <b>draw</b> one card. If it can be played you may play it right away; otherwise your turn ends.</li>
+      <li><b>⊘ Skip</b>: the next player misses a turn. <b>⇄ Reverse</b>: play changes direction (with two players it works like Skip). <b>+2</b>: the next player draws 2 and misses a turn.</li>
+      <li><b>Wild</b>: play it on anything and choose the colour. <b>Wild +4</b>: choose the colour, and the next player draws 4 and misses a turn. You may only play a Wild +4 when you have no card of the current colour.</li>
+      <li>When you play your second-to-last card, tap <b>Last card!</b> first. Forget, and you draw 2 as a penalty.</li>
+      <li>The first player to empty their hand wins the round and scores the cards left in everyone else's hands: numbers at face value, Skip, Reverse and +2 at 20, Wilds at 50.</li>
+      <li>Play one round, or keep dealing until someone reaches the target score.</li>
+    </ol>
+    <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
+  </div>
+</div>
+
+<div class="overlay" id="veil" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="veilTitle">
+    <h2 id="veilTitle">Your turn</h2>
+    <p class="sub">Pass the iPad over, then show your cards.</p>
+    <button class="btn primary big go" id="btnVeil" type="button">SHOW MY CARDS</button>
+  </div>
+</div>
+
+<div class="overlay" id="pickBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="pickTitle">
+    <h2 id="pickTitle">Pick a colour</h2>
+    <div class="picker" id="picker"></div>
+  </div>
+</div>
+
+<div class="overlay" id="roundBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="roundTitle">
+    <h2 id="roundTitle">Round over</h2>
+    <p class="sub" id="roundSub"></p>
+    <div class="restHands" id="restHands"></div>
+    <ul class="standings" id="standings"></ul>
+    <button class="btn primary big go" id="btnNextRound" type="button">NEXT ROUND</button>
+  </div>
+</div>
+
+<div class="overlay" id="overBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">You win</h2>
+    <p class="sub" id="overSub"></p>
+    <ul class="standings" id="finalStandings"></ul>
+    <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
+    <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
+    <a class="btn go" href="../../index.html" style="width:100%">Home</a>
+  </div>
+</div>
+
+<script src="../../assets/kit.js"></script>
+<script>
+(function(){
+'use strict';
+const {sleep, sound, callout, confetti, stopConfetti, seg} = Kit;
+const $ = id => document.getElementById(id);
+const store = Kit.store('lastcard');
+
+/* ---------- Engine ----------
+   108 cards. Per colour: one 0, two each of 1-9, Skip, Reverse and +2. Plus 4 Wilds and 4 Wild +4s (colour 4). */
+const COLORS = [{name: 'Coral', fill: '#ff6b5e'}, {name: 'Teal', fill: '#1fb5a8'}, {name: 'Gold', fill: '#f5b82e'}, {name: 'Violet', fill: '#9a78ee'}];
+const CARDS = [];
+for (let c = 0; c < 4; c++){
+  CARDS.push({c, v: '0'});
+  for (let k = 0; k < 2; k++){
+    for (let n = 1; n <= 9; n++) CARDS.push({c, v: String(n)});
+    ['skip', 'rev', 'd2'].forEach(v => CARDS.push({c, v}));
+  }
+}
+for (let k = 0; k < 4; k++){ CARDS.push({c: 4, v: 'w'}); CARDS.push({c: 4, v: 'w4'}); }
+const isWild = id => CARDS[id].c === 4;
+const pts = id => { const v = CARDS[id].v; return /^\d$/.test(v) ? +v : CARDS[id].c === 4 ? 50 : 20; };
+const SYM = {skip: '⊘', rev: '⇄', d2: '+2', w: 'W', w4: '+4'};
+const sym = id => SYM[CARDS[id].v] || CARDS[id].v;
+const cardName = id => {
+  const k = CARDS[id];
+  if (k.v === 'w') return 'Wild'; if (k.v === 'w4') return 'Wild +4';
+  return `${COLORS[k.c].name} ${{skip: 'Skip', rev: 'Reverse', d2: '+2'}[k.v] || k.v}`;
+};
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+/* Cards in this hand that can go on the pile. */
+function legal(hand, top, color){
+  const hasColor = hand.some(h => CARDS[h].c === color);
+  return hand.filter(id => {
+    const k = CARDS[id];
+    if (k.v === 'w') return true;
+    if (k.v === 'w4') return !hasColor;
+    return k.c === color || (CARDS[top].c !== 4 && k.v === CARDS[top].v);
+  });
+}
+
+/* ---------- Computer ----------
+   Easy plays any legal card. Medium keeps its wilds for when it's stuck, sheds high cards, and stays in the colour it
+   holds most of. Hard also hits a player close to going out with +2, +4, Skip or Reverse, and picks colours that the
+   next player has shown they don't have. */
+function bestColor(hand, avoidFor, level){
+  const n = [0, 0, 0, 0];
+  hand.forEach(h => { if (CARDS[h].c < 4) n[CARDS[h].c] += 1 + pts(h) / 40; });
+  if (level === 'hard' && avoidFor) avoidFor.forEach(c => { n[c] += .9; });
+  let best = 0; for (let c = 1; c < 4; c++) if (n[c] > n[best]) best = c;
+  return best;
+}
+/* Returns the card to play, or null when hard would rather draw than spend a Wild. */
+function cpuChoose(p, opts, level, drew){
+  if (level === 'easy') return opts[Math.floor(Math.random() * opts.length)];
+  if (level === 'hard' && !drew && opts.every(isWild) && S.players[p].hand.length > 3 && S.players[nextOf(p, 1)].hand.length > 2) return null;
+  const P = S.players, me = P[p].hand, nx = nextOf(p, 1), nxCards = P[nx].hand.length;
+  let best = null, bv = -Infinity;
+  for (const id of opts){
+    const k = CARDS[id], rest = me.filter(h => h !== id);
+    let v = pts(id) * .3;
+    if (k.c === 4) v -= rest.length > 2 ? (k.v === 'w4' ? 14 : 10) : 0;
+    else v += rest.filter(h => CARDS[h].c === k.c).length * 1.5;   // stay in a colour we can follow
+    if (level === 'hard'){
+      const attack = k.v === 'd2' || k.v === 'w4' || k.v === 'skip' || (k.v === 'rev' && P.length === 2);
+      if (attack) v += nxCards <= 2 ? 25 : nxCards <= 4 ? 4 : 0;
+      if (k.c < 4 && S.lacks[nx].includes(k.c)) v += 3;   // they couldn't follow this colour before
+    }
+    v += Math.random() * .01;
+    if (v > bv){ bv = v; best = id; }
+  }
+  return best;
+}
+
+/* ---------- State ---------- */
+const cfg = Object.assign({count: 2, cpu: [false, true, true, true], level: 'medium', target: 250}, store.get('cfg', {}));
+let S = null, gen = 0, thinking = false, fresh = null, pendingWild = null;
+const isCpu = p => S.players[p].cpu;
+const humans = () => S.players.filter(x => !x.cpu).length;
+const save = () => store.set('game', S);
+const nextOf = (p, k) => { const n = S.players.length; return ((p + S.dir * k) % n + n * 4) % n; };
+const top = () => S.pile[S.pile.length - 1];
+function nameList(flags){
+  const h = flags.filter(x => !x).length, c = flags.filter(Boolean).length;
+  let hi = 0, ci = 0;
+  return flags.map(cpu => cpu ? (c === 1 ? 'Computer' : 'Computer ' + (++ci)) : (h === 1 ? 'You' : 'Player ' + (++hi)));
+}
+
+function newGame(){
+  gen++; stopConfetti(); thinking = false;
+  const flags = cfg.cpu.slice(0, cfg.count).map(Boolean), nm = nameList(flags);
+  S = {players: flags.map((cpu, i) => ({cpu, name: nm[i], hand: [], score: 0, called: false})),
+    level: cfg.level, target: +cfg.target, round: 0, starter: Math.floor(Math.random() * flags.length), seen: -1, over: false, started: true};
+  ['overBox', 'roundBox', 'veil', 'pickBox'].forEach(id => $(id).hidden = true);
+  newRound();
+}
+function newRound(){
+  S.round++;
+  const deck = shuffle([...Array(108).keys()]);
+  S.players.forEach(p => { p.hand = deck.splice(0, 7); p.called = false; sortHand(p.hand); });
+  let first;
+  while (isWild(first = deck.pop())) deck.unshift(first);   // a wild can't start the pile
+  S.deck = deck; S.pile = [first]; S.color = CARDS[first].c; S.dir = 1; S.drawn = null;
+  S.lacks = S.players.map(() => []);
+  S.turn = S.starter; S.starter = (S.starter + 1) % S.players.length;
+  S.phase = 'play'; S.note = '';
+  const v = CARDS[first].v;   // the first card's action applies to the first player
+  if (v === 'rev'){ S.dir = -1; if (S.players.length === 2) S.turn = nextOf(S.turn, 1); }
+  else if (v === 'skip'){ S.note = `${S.players[S.turn].name} skipped`; S.turn = nextOf(S.turn, 1); }
+  else if (v === 'd2'){ drawCards(S.turn, 2); S.note = `${S.players[S.turn].name} drew 2`; S.turn = nextOf(S.turn, 1); }
+  save(); render(); beginTurn();
+}
+function sortHand(h){ h.sort((a, b) => CARDS[a].c - CARDS[b].c || rankOf(a) - rankOf(b)); }
+const rankOf = id => { const v = CARDS[id].v; return /^\d$/.test(v) ? +v : {skip: 10, rev: 11, d2: 12, w: 13, w4: 14}[v]; };
+function drawCards(p, n){
+  const got = [];
+  for (let k = 0; k < n; k++){
+    if (!S.deck.length){
+      const t = S.pile.pop();
+      S.deck = shuffle(S.pile); S.pile = [t];
+      if (!S.deck.length) break;   // every card is in someone's hand
+    }
+    const id = S.deck.pop();
+    S.players[p].hand.push(id); got.push(id);
+  }
+  sortHand(S.players[p].hand);
+  if (got.length) S.players[p].called = false;
+  return got;
+}
+const hidden = () => humans() > 1 && (isCpu(S.turn) || S.seen !== S.turn);
+function beginTurn(){
+  if (S.over || S.phase === 'round') return;
+  if (isCpu(S.turn)){ cpuTurn(); return; }
+  if (humans() > 1 && S.seen !== S.turn){
+    $('veilTitle').textContent = S.players[S.turn].name + "'s turn";
+    $('veil').hidden = false;
+  }
+}
+function play(p, id, color){
+  const pl = S.players[p], k = CARDS[id];
+  pl.hand = pl.hand.filter(h => h !== id);
+  S.pile.push(id); S.color = k.c === 4 ? color : k.c; S.drawn = null; fresh = id;
+  sound.place();
+  let note = `${pl.name} played ${cardName(id)}` + (k.c === 4 ? ` · ${COLORS[color].name}` : '');
+  if (pl.hand.length === 1){
+    if (pl.called) callout('LAST CARD!');
+    else { drawCards(p, 2); note += ` · forgot to call, drew 2`; callout('FORGOT! +2'); sound.bad(); }
+  }
+  pl.called = false;
+  let skip = false;
+  const nx = nextOf(p, 1);
+  if (k.v === 'skip') skip = true;
+  if (k.v === 'rev'){ S.dir = -S.dir; if (S.players.length === 2) skip = true; }
+  if (k.v === 'd2'){ drawCards(nx, 2); skip = true; note += ` · ${S.players[nx].name} draws 2`; }
+  if (k.v === 'w4'){ drawCards(nx, 4); skip = true; note += ` · ${S.players[nx].name} draws 4`; }
+  if (k.v === 'd2' || k.v === 'w4') sound.capture();
+  S.note = note;
+  if (!pl.hand.length){ endRound(p); return; }
+  S.turn = nextOf(p, skip ? 2 : 1);
+  if (S.players.length === 2 && skip) S.turn = p;
+  S.phase = 'play';
+  save(); render(); beginTurn();
+}
+function drawOne(p){
+  const got = drawCards(p, 1);
+  if (!S.lacks[p].includes(S.color)) S.lacks[p].push(S.color);
+  sound.click();
+  const id = got[0];
+  if (id == null){ S.note = `${S.players[p].name} couldn't draw`; passTurn(p); return; }
+  fresh = id;
+  if (legal([id].concat(S.players[p].hand.filter(h => h !== id)), top(), S.color).includes(id)){
+    S.drawn = id; S.phase = 'drawn';
+    S.note = `${S.players[p].name} drew a card`;
+    save(); render();
+    return id;
+  }
+  S.note = `${S.players[p].name} drew a card`;
+  S.phase = 'passing';   // nothing to play; the turn moves on in a moment
+  render();
+  const g = gen;
+  setTimeout(() => { if (g === gen) passTurn(p); }, 700);
+  return null;
+}
+function passTurn(p){
+  S.drawn = null; S.phase = 'play';
+  S.turn = nextOf(p, 1);
+  save(); render(); beginTurn();
+}
+function endRound(w){
+  const won = S.players.reduce((a, pl, i) => a + (i === w ? 0 : pl.hand.reduce((x, h) => x + pts(h), 0)), 0);
+  S.players[w].score += won;
+  S.phase = 'round'; S.lastWinner = w; S.lastPts = won;
+  callout(S.players[w].name === 'You' ? 'YOU WIN THE ROUND!' : 'ROUND OVER');
+  if (S.target === 0 || S.players[w].score >= S.target){ S.over = true; S.winner = w; }
+  save(); render();
+  const g = gen;
+  setTimeout(() => { if (g === gen) S.over ? finish() : showRound(); }, 1100);
+}
+function standingsHtml(){
+  const best = Math.max(...S.players.map(p => p.score));
+  return S.players.map(p => ({p})).sort((a, b) => b.p.score - a.p.score)
+    .map(({p}) => `<li class="${p.score === best ? 'top' : ''}"><span>${p.name}</span><span>${p.score}</span></li>`).join('');
+}
+function showRound(){
+  const w = S.lastWinner, P = S.players;
+  $('roundTitle').textContent = `${P[w].name} ${P[w].name === 'You' ? 'win' : 'wins'} round ${S.round}`;
+  $('roundSub').textContent = `${S.lastPts} points from the cards left in the other hands. First to ${S.target} wins.`;
+  $('restHands').innerHTML = P.map((p, i) => i === w ? '' :
+    `<div><div class="who"><span>${p.name}</span><span>${p.hand.reduce((x, h) => x + pts(h), 0)}</span></div><div class="row">${p.hand.map(h => cardHtml(h, 'sm')).join('')}</div></div>`).join('');
+  $('standings').innerHTML = standingsHtml();
+  $('roundBox').hidden = false;
+  sound.good();
+}
+$('btnNextRound').addEventListener('click', () => { $('roundBox').hidden = true; S.seen = -1; newRound(); });
+function finish(){
+  S.phase = 'over';
+  const w = S.winner, P = S.players;
+  save(); render();
+  $('overTitle').textContent = P[w].name === 'You' ? 'You win' : P[w].name + ' wins';
+  $('overSub').textContent = S.target === 0 ? `Out first, scoring ${S.lastPts} from the other hands.` : `First to ${S.target}, after ${S.round} round${S.round === 1 ? '' : 's'}.`;
+  $('finalStandings').innerHTML = standingsHtml();
+  $('overBox').hidden = false;
+  if (isCpu(w) && humans()) sound.bad();
+  else { sound.win(); confetti(['#ff6b5e', '#1fb5a8', '#f5b82e', '#9a78ee', '#ffffff']); }
+}
+async function cpuTurn(){
+  const g = gen, p = S.turn, lv = S.level;
+  thinking = true; render();
+  await sleep(900);
+  if (g !== gen || S.turn !== p || S.phase === 'round') return;
+  let opts = legal(S.players[p].hand, top(), S.color);
+  if (opts.length && cpuChoose(p, opts, lv, false) == null) opts = [];   // saving a Wild: draw instead
+  if (!opts.length){
+    const d = drawOne(p);
+    if (d == null) { thinking = false; return; }
+    await sleep(700);
+    if (g !== gen) return;
+    opts = [d];
+  }
+  thinking = false;
+  const id = cpuChoose(p, opts, lv, true);
+  const pl = S.players[p];
+  if (pl.hand.length === 2) pl.called = lv === 'easy' ? Math.random() < .75 : true;
+  const color = isWild(id) ? (lv === 'easy' ? Math.floor(Math.random() * 4) : bestColor(pl.hand.filter(h => h !== id), S.lacks[nextOf(p, 1)], lv)) : null;
+  play(p, id, color);
+}
+
+/* ---------- Drawing ---------- */
+function cardHtml(id, cls, tag){
+  if (id == null) return `<div class="ucard back ${cls || ''}"></div>`;
+  const k = CARDS[id], s = sym(id), t = tag || 'div';
+  const small = s.length > 1 && k.c !== 4;
+  return `<${t} class="ucard k${k.c} ${cls || ''}" ${t === 'button' ? `type="button" data-id="${id}" aria-label="${cardName(id)}"` : ''}>` +
+    `<span class="ix">${s}</span><span class="panel${small ? ' sm' : ''}">${k.v === 'w' ? '' : s}</span><span class="ix b">${s}</span></${t}>`;
+}
+function statusHtml(){
+  const pl = S.players[S.turn], who = pl.name === 'You' ? 'Your turn' : pl.name + "'s turn";
+  if (S.phase === 'over') return `<b>${S.players[S.winner].name} ${S.players[S.winner].name === 'You' ? 'win' : 'wins'}</b>`;
+  if (S.phase === 'round' || S.phase === 'none') return S.phase === 'round' ? '<b>Round over</b>' : '';
+  if (isCpu(S.turn)) return `<span class="${thinking ? 'thinking' : ''}">${S.note ? S.note + ' · ' : ''}${who}</span>`;
+  if (hidden()) return `<b>${who}</b>`;
+  if (S.phase === 'drawn') return `<b>${who}</b> · play the card you drew, or keep it`;
+  if (S.phase === 'passing') return `<b>${who}</b> · ${S.note}, no match`;
+  const n = legal(pl.hand, top(), S.color).length;
+  if (n && pl.hand.length === 2 && !pl.called) return `<b>${who}</b> · tap Last card! before you play`;
+  return `<b>${who}</b> · ${S.note ? S.note + ' · ' : ''}${n ? 'play a card or draw' : 'no match, draw a card'}`;
+}
+function render(){
+  const P = S.players, el = $('players');
+  el.className = 'players n' + P.length;
+  el.innerHTML = P.map((p, i) => `<div class="pcard${i === S.turn && !['round', 'over'].includes(S.phase) ? ' on' : ''}">` +
+    `<div class="who"><div class="nm">${p.name}</div><div class="sub">${p.cpu ? 'Computer · ' : ''}${S.target ? p.score + ' pts' : 'one round'}</div></div>` +
+    `<div class="num" aria-label="${p.hand.length} cards">${p.hand.length}${p.hand.length === 1 ? '!' : ''}</div></div>`).join('');
+  $('status').innerHTML = statusHtml();
+
+  const playing = S.phase === 'play' || S.phase === 'drawn';
+  const me = humans() === 1 ? P.findIndex(p => !p.cpu) : (isCpu(S.turn) ? -1 : S.turn);   // with several people, only the active one's hand
+  const hide = hidden() || me < 0, myTurn = playing && S.turn === me && !hide;
+  const canDraw = myTurn && S.phase === 'play';
+  $('deckBtn').innerHTML = `<div class="stack">${cardHtml(null)}${cardHtml(null, canDraw ? 'live' : '')}</div>`;
+  $('deckBtn').disabled = !canDraw;
+  $('deckLbl').textContent = `Draw · ${S.deck.length}`;
+  $('pile').innerHTML = cardHtml(top(), fresh === top() ? 'new' : '');
+  $('pileWrap').style.boxShadow = `0 0 0 4px ${COLORS[S.color].fill}, 0 0 24px ${COLORS[S.color].fill}`;
+  $('colorLbl').textContent = COLORS[S.color].name;
+  $('dir').textContent = S.dir === 1 ? '↻' : '↺';
+
+  const hand = me >= 0 ? P[me].hand : [], h = $('hand');
+  const ok = myTurn ? (S.phase === 'drawn' ? [S.drawn] : legal(hand, top(), S.color)) : [];
+  h.innerHTML = hand.map(id => hide ? cardHtml(null) : cardHtml(id, (myTurn ? (ok.includes(id) ? 'can' : 'off') : '') + (id === fresh ? ' new' : ''), 'button')).join('');
+  fresh = null;
+  // overlap the hand so it always fits on one row
+  const cw = h.firstElementChild ? h.firstElementChild.getBoundingClientRect().width : 60, W = h.clientWidth - 8, n = hand.length;
+  const ov = n > 1 ? Math.max(-cw * .74, Math.min(-cw * .08, (W - n * cw) / (n - 1))) : 0;
+  h.style.setProperty('--ov', ov + 'px');
+
+  const main = $('btnMain'), call = $('btnCall');
+  if (S.phase === 'drawn' && myTurn){ main.textContent = 'KEEP IT'; main.disabled = false; }
+  else { main.textContent = 'DRAW'; main.disabled = !canDraw; }
+  const pl = me >= 0 ? P[me] : null;
+  call.disabled = !(myTurn && pl.hand.length === 2 && !pl.called);
+  call.classList.toggle('primary', !call.disabled);
+  call.textContent = pl && pl.called && myTurn ? 'CALLED!' : 'LAST CARD!';
+}
+
+/* ---------- Input ---------- */
+function myTurnNow(){ return S && (S.phase === 'play' || S.phase === 'drawn') && !isCpu(S.turn) && !hidden(); }
+$('hand').addEventListener('click', e => {
+  const b = e.target.closest('button.ucard');
+  if (!b || !myTurnNow()) return;
+  const id = +b.dataset.id, hand = S.players[S.turn].hand;
+  const ok = S.phase === 'drawn' ? [S.drawn] : legal(hand, top(), S.color);
+  if (!ok.includes(id)){
+    sound.click();
+    callout(S.phase === 'drawn' ? 'ONLY THE NEW CARD' : CARDS[id].v === 'w4' ? 'YOU HAVE ' + COLORS[S.color].name.toUpperCase() : 'NO MATCH');
+    return;
+  }
+  if (isWild(id)){ pendingWild = id; $('pickBox').hidden = false; return; }
+  play(S.turn, id, null);
+});
+$('picker').innerHTML = COLORS.map((c, i) => `<button type="button" data-c="${i}" style="background:${c.fill}">${c.name.toUpperCase()}</button>`).join('');
+$('picker').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || pendingWild == null) return;
+  $('pickBox').hidden = true;
+  const id = pendingWild; pendingWild = null;
+  play(S.turn, id, +b.dataset.c);
+});
+$('pickBox').addEventListener('click', e => { if (e.target.id === 'pickBox'){ $('pickBox').hidden = true; pendingWild = null; } });
+$('deckBtn').addEventListener('click', () => { if (myTurnNow() && S.phase === 'play') drawOne(S.turn); });
+$('btnMain').addEventListener('click', () => {
+  if (!myTurnNow()) return;
+  if (S.phase === 'play') drawOne(S.turn);
+  else if (S.phase === 'drawn'){ S.note = `${S.players[S.turn].name} kept the card`; passTurn(S.turn); }
+});
+$('btnCall').addEventListener('click', () => {
+  if (!myTurnNow()) return;
+  const pl = S.players[S.turn];
+  if (pl.hand.length !== 2) return;
+  pl.called = true; callout('LAST CARD!'); sound.good(); save(); render();
+});
+$('btnVeil').addEventListener('click', () => { $('veil').hidden = true; S.seen = S.turn; save(); render(); });
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
+$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newGame(); });
+$('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
+$('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
+$('btnAgain').addEventListener('click', newGame);
+$('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.started) $(id).hidden = true; }));
+Kit.soundButton($('btnSound'));
+new ResizeObserver(() => { if (S && S.players[0].hand.length) render(); }).observe($('hand'));
+
+function seatRows(){
+  const box = $('seatRows');
+  box.innerHTML = '';
+  for (let t = 0; t < cfg.count; t++){
+    const row = document.createElement('div');
+    row.className = 'seatRow';
+    row.innerHTML = `<span class="nm">Seat ${t + 1}</span><div class="seg"><button type="button" data-v="h">Person</button><button type="button" data-v="c">Computer</button></div>`;
+    seg(row.querySelector('.seg'), () => cfg.cpu[t] ? 'c' : 'h', v => { cfg.cpu[t] = v === 'c'; syncLevel(); });
+    box.appendChild(row);
+  }
+  syncLevel();
+}
+const syncLevel = () => { $('levelWrap').hidden = !cfg.cpu.slice(0, cfg.count).some(Boolean); };
+const syncers = [
+  seg($('segCount'), () => cfg.count, v => { cfg.count = +v; seatRows(); }),
+  seg($('segLevel'), () => cfg.level, v => cfg.level = v),
+  seg($('segTarget'), () => cfg.target, v => cfg.target = +v)
+];
+function syncSetup(){ syncers.forEach(f => f()); seatRows(); }
+
+/* ---------- Boot ---------- */
+const saved = store.get('game', null);
+if (saved && saved.players && saved.pile && !saved.over && saved.phase !== 'over'){
+  S = saved; S.seen = -1;
+  render();
+  if (S.phase === 'round') showRound();
+  else if (S.phase === 'drawn' && !isCpu(S.turn)) beginTurn();
+  else { if (S.phase === 'drawn' || S.phase === 'passing') S.phase = 'play'; beginTurn(); }
+} else {
+  S = {players: [{cpu: false, name: 'You', hand: [], score: 0}], deck: [], pile: [0], color: 0, dir: 1, turn: 0, phase: 'none', target: 250, round: 0, seen: -1, lacks: [[]]};
+  render();
+  syncSetup(); $('setup').hidden = false;
+}
+})();
+</script>
+</body>
+</html>
