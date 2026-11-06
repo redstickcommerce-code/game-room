@@ -84,6 +84,30 @@
 .finalList{list-style:none;padding:0;margin:8px 0 0;font-family:var(--f-ui);font-size:20px;font-weight:600}
 .finalList li{display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.15)}
 .finalList li.win{color:var(--accent)}
+/* Online */
+.sheet .hint{margin:6px 0 0;font-size:14px;color:var(--muted)}
+.sheet .err{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:rgba(255,107,107,.18);color:#ffd0d0;font-weight:600}
+.joinRow{display:flex;gap:10px}
+.joinRow input{flex:1;min-width:0;min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:rgba(0,0,0,.25);color:#fff;
+  font-family:var(--f-display);font-size:22px;letter-spacing:.2em;text-transform:uppercase;padding:0 14px;-webkit-user-select:text;user-select:text}
+.joinRow input::placeholder{color:rgba(255,255,255,.35)}
+.sheet .code{font-family:var(--f-display);font-size:clamp(40px,12vmin,64px);letter-spacing:.14em;color:var(--accent);margin:4px 0 12px;
+  text-shadow:0 4px 0 rgba(0,0,0,.35);-webkit-user-select:text;user-select:text}
+.seatList{list-style:none;padding:0;margin:18px 0 0;text-align:left}
+.seatList li{display:flex;align-items:center;gap:10px;min-height:52px;padding:4px 4px;border-bottom:1px solid rgba(255,255,255,.15);font-family:var(--f-ui);font-size:20px;font-weight:600}
+.seatList .dot{width:22px;height:22px;border-radius:50%;flex:none}
+.seatList .nm{flex:1}
+.seatList .st{color:var(--muted)}
+.seatList .st.ok{color:#a6f0a0}
+.seatList .btn{min-height:40px}
+.topbar .btn.room{color:#fff;font-family:var(--f-display);font-weight:400;letter-spacing:.08em}
+.topbar .btns{flex-wrap:nowrap}
+@media (max-width:520px){ .topbar .btn.room{padding:8px 10px} }
+.live{width:10px;height:10px;border-radius:50%;background:#5df07a;box-shadow:0 0 8px #5df07a}
+.live.off{background:#ff6b6b;box-shadow:0 0 8px #ff6b6b}
+.toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom,0px));translate:-50% 0;z-index:50;max-width:calc(100% - 32px);
+  padding:12px 18px;border-radius:14px;background:rgba(8,24,14,.95);border:1.5px solid var(--line);font-family:var(--f-ui);font-weight:600;font-size:18px;text-align:center;
+  box-shadow:0 12px 30px rgba(0,0,0,.5)}
 @media (prefers-reduced-motion: reduce){ .die.rolling,.pawn.on .ring{animation:none} }
 </style>
 </head>
@@ -93,6 +117,7 @@
     <a class="btn" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
     <div class="logo">SNAKES &amp; LADDERS</div>
     <div class="btns">
+      <button class="btn room" id="btnRoom" type="button" aria-label="Online game details" hidden></button>
       <button class="btn" id="btnSound" type="button">♪</button>
       <button class="btn" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
     </div>
@@ -118,11 +143,30 @@
     <div class="seg" id="segCount"><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button></div>
     <h4>Who's playing</h4>
     <div id="seatRows"></div>
+    <p class="hint">Online seats are for players on another phone or computer. You'll get a code and link to send them.</p>
     <h4>Reaching 100</h4>
     <div class="seg" id="segFinish"><button type="button" data-v="bounce">Bounce back</button><button type="button" data-v="exact">Exact roll</button><button type="button" data-v="any">Any roll</button></div>
     <h4>Rolling a 6</h4>
     <div class="seg" id="segSix"><button type="button" data-v="again">Roll again</button><button type="button" data-v="no">No extra roll</button></div>
+    <p class="err" id="setupErr" hidden></p>
     <button class="btn primary big go" id="btnStart" type="button">START</button>
+    <h4>Join an online game</h4>
+    <form class="joinRow" id="joinForm">
+      <input id="joinCode" maxlength="5" placeholder="CODE" aria-label="Game code" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go">
+      <button class="btn" id="btnJoin" type="submit">Join</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="lobby" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="lobbyTitle">
+    <h2 id="lobbyTitle">Online game</h2>
+    <p class="sub" id="lobbySub"></p>
+    <div class="code" id="lobbyCode" aria-label="Game code"></div>
+    <button class="btn" id="btnShare" type="button">Share link</button>
+    <ul class="seatList" id="lobbySeats"></ul>
+    <button class="btn primary big go" id="btnLobbyGo" type="button">START</button>
+    <button class="btn go" id="btnLobbyLeave" type="button" style="width:100%">Cancel</button>
   </div>
 </div>
 
@@ -136,6 +180,7 @@
       <li>Any number of tokens can share a square.</li>
       <li>The first to reach <b>100</b> wins. Depending on the setting, you either <b>bounce back</b> by the extra squares if you roll too high, need the <b>exact roll</b> (otherwise you stay put), or win with <b>any roll</b> that gets you there.</li>
       <li>With <b>Roll again</b> on, a 6 earns another turn.</li>
+      <li><b>Online:</b> make one or more seats <b>Online</b> and send the code or link. Your device runs the game. If an online player drops out, the computer rolls for them until they come back.</li>
     </ol>
     <button class="btn primary big go" id="closeRules" type="button">GOT IT</button>
   </div>
@@ -145,13 +190,17 @@
   <div class="sheet center" role="dialog" aria-labelledby="overTitle">
     <h2 id="overTitle">You win</h2>
     <ul class="finalList" id="finalList"></ul>
+    <p class="sub" id="overWait" hidden>Waiting for the host to start another game…</p>
     <button class="btn primary big go" id="btnAgain" type="button">PLAY AGAIN</button>
     <button class="btn go" id="btnChange" type="button" style="width:100%">Change settings</button>
     <a class="btn go" href="../../index.html" style="width:100%">Home</a>
   </div>
 </div>
 
+<div class="toast" id="toast" role="alert" hidden></div>
+
 <script src="../../assets/kit.js"></script>
+<script src="../../assets/online.js"></script>
 <script>
 (function(){
 'use strict';
@@ -243,27 +292,48 @@ function drawBoard(){
   $('board').innerHTML = o;
 }
 
-/* ---------- State ---------- */
-const cfg = Object.assign({count: 2, cpu: [false, true, true, true], finish: 'bounce', six: 'again'}, store.get('cfg', {}));
+/* ---------- State ----------
+   Seat kinds: 'local' (a person on this device), 'cpu', 'remote' (a person in an online room; cid is their client id).
+   Online, the host's browser owns S and runs every roll; guests send {t:'roll'} and replay the host's moves. */
+const cfg = Object.assign({count: 2, finish: 'bounce', six: 'again'}, store.get('cfg', {}));
+if (!cfg.seats) cfg.seats = (cfg.cpu || [false, true, true, true]).map(c => c ? 'c' : 'h');   // h person here, c computer, o online
 let S = null, gen = 0, busy = false, thinking = false, rollingDie = false;
-const isCpu = p => S.players[p].cpu;
-const save = () => store.set('game', S);
-function nameList(cpuFlags){
-  const h = cpuFlags.filter(x => !x).length, c = cpuFlags.filter(Boolean).length;
+let net = null, pending = null, waitingRoll = false, hostAway = false, shownOver = '';
+const isHost = () => !net || net.role === 'host';
+const isGuest = () => !!net && net.role === 'guest';
+const kind = i => S.players[i].kind || (S.players[i].cpu ? 'cpu' : 'local');
+const isCpu = i => kind(i) === 'cpu';
+const mine = i => isGuest() ? S.players[i].cid === Online.me : kind(i) === 'local';
+const myCount = () => S.players.filter((_, i) => mine(i)).length;
+const label = i => mine(i) && myCount() === 1 ? 'You' : S.players[i].name;
+const noteText = () => (S.note || '').replace(/@(\d)/g, (_, k) => label(+k));
+const present = cid => !!(net && cid && net.room.present.has(cid));
+const save = () => { if (isHost() && S.phase !== 'joining') store.set('game', S); };
+const broadcast = () => { if (net && net.role === 'host') net.room.send({t: 'state', S}); };
+function nameList(kinds){
+  const cpus = kinds.filter(k => k === 'c').length;
   let ci = 0;
-  return cpuFlags.map((cpu, i) => cpu ? (c === 1 ? 'Computer' : 'Computer ' + (++ci)) : (h === 1 ? 'You' : PCOLS[i].name));
+  return kinds.map((k, i) => k === 'c' ? (cpus === 1 ? 'Computer' : 'Computer ' + (++ci)) : PCOLS[i].name);
 }
-function newGame(){
-  gen++; stopConfetti(); busy = false; thinking = false;
-  const flags = cfg.cpu.slice(0, cfg.count).map(Boolean), nm = nameList(flags);
-  S = {players: flags.map((cpu, i) => ({cpu, name: nm[i], pos: 0, ladders: 0, snakes: 0})),
-    finish: cfg.finish, six: cfg.six, turn: 0, die: 0, note: '', over: false, started: true, rolls: 0};
+function freshPlayers(){
+  const kinds = cfg.seats.slice(0, cfg.count), nm = nameList(kinds);
+  return kinds.map((k, i) => ({kind: k === 'c' ? 'cpu' : k === 'o' ? 'remote' : 'local', cpu: k === 'c', name: nm[i], cid: null, pos: 0, ladders: 0, snakes: 0}));
+}
+function blankState(players, phase){
+  return {players, finish: cfg.finish, six: cfg.six, turn: 0, die: 0, note: '', over: false, started: true, rolls: 0, seq: 0,
+    gid: Math.random().toString(36).slice(2, 8), phase, online: net ? {code: net.room.code} : null};
+}
+function newGame(players){
+  gen++; stopConfetti(); busy = false; thinking = false; pending = null;
+  S = blankState(players, 'play');
   $('overBox').hidden = true;
-  save(); render(); placePawns(); beginTurn();
+  save(); broadcast(); render(); placePawns(); beginTurn();
 }
 function beginTurn(){
-  if (S.over) return;
-  if (isCpu(S.turn)) cpuTurn();
+  if (!isHost() || S.over || S.phase !== 'play') return;
+  const k = kind(S.turn);
+  if (k === 'cpu') cpuTurn();
+  else if (k === 'remote' && !present(S.players[S.turn].cid)) awayTurn();
 }
 
 /* ---------- Pawn animation ---------- */
@@ -329,10 +399,16 @@ async function walk(i, from, steps){
 
 /* ---------- Turns ---------- */
 async function roll(){
-  if (busy || S.over) return;
-  busy = true; thinking = false;
-  const g = gen, i = S.turn, p = S.players[i], d = 1 + Math.floor(Math.random() * 6);
-  S.die = d; S.rolls++; rollingDie = true;
+  if (busy || S.over || S.phase !== 'play') return;
+  const i = S.turn, d = 1 + Math.floor(Math.random() * 6);
+  if (net && net.role === 'host') net.room.send({t: 'move', i, d, seq: S.seq});
+  await playMove(i, d);
+}
+/* Moves token i by a roll of d. Deterministic, so guests replay the host's moves with the same code. */
+async function playMove(i, d){
+  busy = true; thinking = false; waitingRoll = false;
+  const g = gen, p = S.players[i];
+  S.seq++; S.die = d; S.rolls++; rollingDie = true;
   sound.dice(); render();
   rollingDie = false;
   await sleep(550);
@@ -342,7 +418,7 @@ async function roll(){
   for (let n = start + 1; n <= Math.min(target, 100); n++) steps.push(n);
   let note = '';
   if (target > 100){
-    if (S.finish === 'exact'){ target = start; steps = []; note = `${p.name} needs exactly ${100 - start}`; }
+    if (S.finish === 'exact'){ target = start; steps = []; note = `@${i} rolled ${d}, needs exactly ${100 - start}`; }
     else if (S.finish === 'bounce'){ target = 200 - target; for (let n = 99; n >= target; n--) steps.push(n); }
     else target = 100;
   }
@@ -358,87 +434,301 @@ async function roll(){
     const [a, b] = [xy(target), xy(top)];
     await tween(i, [[a[0], a[1] + 4], [b[0], b[1] + 4]], 520 + Math.hypot(b[0] - a[0], b[1] - a[1]) * .9);
     p.pos = top; p.ladders++;
-    note = `${p.name} climbed from ${target} to ${top}`;
+    note = `@${i} climbed from ${target} to ${top}`;
   } else if (SNAKES[target]){
-    const tail = SNAKES[target];
+    const tail = SNAKES[target], [a, b] = [xy(target), xy(tail)];
     sound.bad(); callout('SNAKE!');
     await sleep(250);
-    await tween(i, snakePath(target, tail).map(q => [q[0], q[1] + 4]), 700 + Math.hypot(...xy(target).map((v, k) => v - xy(tail)[k])) * 1.1);
+    await tween(i, snakePath(target, tail).map(q => [q[0], q[1] + 4]), 700 + Math.hypot(b[0] - a[0], b[1] - a[1]) * 1.1);
     p.pos = tail; p.snakes++;
-    note = `${p.name} slid from ${target} down to ${tail}`;
+    note = `@${i} slid from ${target} down to ${tail}`;
   } else if (!note && steps.length) sound.place();
   if (g !== gen) return;
-  if (!note && steps.length) note = `${p.name} rolled ${d}, to ${p.pos}`;
-  if (!note) note = `${p.name} rolled ${d}`;
+  if (!note) note = `@${i} rolled ${d}, to ${p.pos}`;
   busy = false;
-  if (p.pos === 100){ S.note = note; finish(i); return; }
-  if (d === 6 && S.six === 'again'){ S.note = note + ' · a 6, roll again!'; }
-  else { S.note = note; S.turn = (S.turn + 1) % S.players.length; }
-  save(); render(); placePawns(); beginTurn();
+  if (p.pos === 100){ S.note = note; finish(i); }
+  else {
+    if (d === 6 && S.six === 'again') S.note = note + ' · a 6, roll again!';
+    else { S.note = note; S.turn = (S.turn + 1) % S.players.length; }
+    save(); broadcast(); render(); placePawns(); beginTurn();
+  }
+  if (pending){ const ns = pending; pending = null; applyState(ns); }
 }
 function finish(w){
   S.over = true; S.winner = w;
-  save(); render(); placePawns();
-  const g = gen, p = S.players[w];
+  save(); broadcast(); render(); placePawns();
   callout('100!');
-  setTimeout(() => {
-    if (g !== gen) return;
-    $('overTitle').textContent = p.name === 'You' ? 'You win' : p.name + ' wins';
-    const order = S.players.map((q, i) => ({q, i})).sort((a, b) => b.q.pos - a.q.pos);
-    $('finalList').innerHTML = order.map(x => `<li class="${x.i === w ? 'win' : ''}"><span>${x.q.name}</span><span>${x.q.pos || 'Start'}</span></li>`).join('') +
-      `<li><span>Rolls this game</span><span>${S.rolls}</span></li>`;
-    $('overBox').hidden = false;
-    const humans = S.players.filter(q => !q.cpu).length;
-    if (!p.cpu || !humans){ sound.win(); confetti([PCOLS[w].c, '#ffffff', '#ffd23f', '#3fae49']); } else sound.bad();
-  }, 900);
+  const g = gen, key = S.gid + ':' + S.seq;
+  setTimeout(() => { if (g === gen && S.over && S.gid + ':' + S.seq === key) showOver(); }, 900);
+}
+function showOver(){
+  const key = S.gid + ':' + S.seq, w = S.winner;
+  if (shownOver === key) return;
+  shownOver = key;
+  $('overTitle').textContent = label(w) === 'You' ? 'You win' : label(w) + ' wins';
+  const order = S.players.map((q, i) => ({q, i})).sort((a, b) => b.q.pos - a.q.pos);
+  $('finalList').innerHTML = order.map(x => `<li class="${x.i === w ? 'win' : ''}"><span>${label(x.i)}</span><span>${x.q.pos || 'Start'}</span></li>`).join('') +
+    `<li><span>Rolls this game</span><span>${S.rolls}</span></li>`;
+  $('overWait').hidden = !isGuest();
+  $('btnAgain').hidden = $('btnChange').hidden = isGuest();
+  $('overBox').hidden = false;
+  if (mine(w) || !myCount()){ sound.win(); confetti([PCOLS[w].c, '#ffffff', '#ffd23f', '#3fae49']); } else sound.bad();
 }
 async function cpuTurn(){
-  const g = gen;
+  const g = gen, seq = S.seq;
   thinking = true; render();
   await sleep(750);
-  if (g !== gen || S.over || !isCpu(S.turn)) return;
+  if (g !== gen || S.seq !== seq || S.over || !isCpu(S.turn)) return;
+  roll();
+}
+/* An online player who has dropped out: the computer rolls for them after a pause. */
+async function awayTurn(){
+  const g = gen, seq = S.seq, t = S.turn;
+  thinking = true; render();
+  await sleep(2500);
+  if (g !== gen || S.seq !== seq || busy || S.over) return;
+  if (present(S.players[t].cid)){ thinking = false; render(); return; }
   roll();
 }
 
 /* ---------- Drawing ---------- */
+function canRoll(){
+  if (!S || S.over || busy || S.phase !== 'play') return false;
+  if (isGuest()) return mine(S.turn) && !hostAway && !waitingRoll;
+  return kind(S.turn) === 'local';
+}
+function seatSub(i){
+  const p = S.players[i], k = kind(i);
+  if (k === 'cpu') return 'Computer';
+  if (k === 'remote') return p.cid && !present(p.cid) && !(isGuest() && p.cid === Online.me) ? 'Away' : 'Online';
+  return net ? 'Host' : 'Player';
+}
 function render(){
   const P = S.players;
   $('players').className = 'players n' + P.length;
-  $('players').innerHTML = P.map((p, i) => `<div class="pcard ${i === S.turn && !S.over ? 'on' : ''}">
+  $('players').innerHTML = P.map((p, i) => `<div class="pcard ${i === S.turn && !S.over && S.phase === 'play' ? 'on' : ''}">
     <span class="swatch" style="background:${PCOLS[i].c}"></span>
-    <div class="who"><div class="nm">${p.name}</div><div class="sub">${p.cpu ? 'Computer' : 'Player'} · ${p.ladders}↑ ${p.snakes}↓</div></div>
+    <div class="who"><div class="nm">${label(i)}</div><div class="sub">${seatSub(i)} · ${p.ladders}↑ ${p.snakes}↓</div></div>
     <div class="num" aria-label="on square ${p.pos || 'start'}">${p.pos || '–'}</div></div>`).join('');
-  const p = P[S.turn], mine = !p.cpu && !S.over && !busy;
-  const who = p.name === 'You' ? 'Your turn' : p.name + "'s turn";
+  const t = S.turn, who = label(t) === 'You' ? 'Your turn' : label(t) + "'s turn", note = noteText();
   let st;
-  if (S.over) st = `<b>${P[S.winner].name === 'You' ? 'You win!' : P[S.winner].name + ' wins!'}</b>`;
-  else if (busy) st = `<b>${p.name}</b> rolled ${S.die}`;
-  else if (p.cpu) st = `<span class="${thinking ? 'thinking' : ''}">${S.note ? S.note + ' · ' : ''}${who}</span>`;
-  else st = `${S.note ? S.note + ' · ' : ''}<b>${who}</b> · roll!`;
+  if (S.phase === 'joining') st = `Connecting to game <b>${net ? net.room.code : ''}</b>…`;
+  else if (S.phase === 'lobby') st = 'Waiting for players to join';
+  else if (isGuest() && hostAway) st = '<b>The host disconnected</b> · waiting for them to come back';
+  else if (S.over) st = `<b>${label(S.winner) === 'You' ? 'You win!' : label(S.winner) + ' wins!'}</b>`;
+  else if (busy) st = `<b>${label(t)}</b> rolled ${S.die}`;
+  else if (canRoll() || (isGuest() && mine(t))) st = `${note ? note + ' · ' : ''}<b>${who}</b> · roll!`;
+  else if (kind(t) === 'remote' && isHost() && !present(P[t].cid)) st = `<span class="${thinking ? 'thinking' : ''}">${label(t)} is away · rolling for them</span>`;
+  else st = `<span class="${thinking || kind(t) === 'remote' || isGuest() ? 'thinking' : ''}">${note ? note + ' · ' : ''}${who}</span>`;
   $('status').innerHTML = st;
-  const die = $('die');
+  const die = $('die'), can = canRoll();
   die.dataset.f = S.die;
   die.classList.toggle('rolling', rollingDie);
-  die.disabled = !mine;
-  die.setAttribute('aria-label', S.die ? `Die shows ${S.die}${mine ? '. Roll the die' : ''}` : 'Roll the die');
-  $('btnRoll').disabled = !mine;
-  $('btnRoll').textContent = mine ? (P.filter(q => !q.cpu).length > 1 ? `ROLL · ${p.name.toUpperCase()}` : 'ROLL') : 'ROLL';
+  die.disabled = !can;
+  die.setAttribute('aria-label', S.die ? `Die shows ${S.die}${can ? '. Roll the die' : ''}` : 'Roll the die');
+  $('btnRoll').disabled = !can;
+  $('btnRoll').textContent = can && myCount() > 1 ? `ROLL · ${label(t).toUpperCase()}` : 'ROLL';
+  $('btnNew').hidden = isGuest();
+  $('btnRoom').hidden = !net;
+  if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
+}
+
+/* ---------- Online ---------- */
+function toast(text){
+  const el = $('toast');
+  el.textContent = text; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 4500);
+}
+async function hostRoom(code){
+  const room = await Online.host({game: 'snakes', code, on: {
+    msg: onHostMsg,
+    join: () => { renderLobby(); render(); },
+    leave: cid => {
+      renderLobby(); render();
+      if (S.phase === 'play' && !S.over && !busy && S.players[S.turn].cid === cid) beginTurn();
+    }
+  }});
+  net = {room, role: 'host'};
+  S.online = {code: room.code};
+}
+function onHostMsg(m, from){
+  if (m.t === 'hello'){
+    if (S.phase === 'lobby' && !S.players.some(p => p.cid === from)){
+      const seat = S.players.find(p => kind(S.players.indexOf(p)) === 'remote' && !present(p.cid));
+      if (seat) seat.cid = from;
+      save(); broadcast(); renderLobby();
+    } else net.room.send({t: 'state', S, to: from});
+    render();
+  } else if (m.t === 'claim' && S.phase === 'lobby'){
+    const s = S.players[m.seat];
+    if (s && kind(m.seat) === 'remote' && (!s.cid || !present(s.cid))){
+      S.players.forEach(p => { if (p.cid === from) p.cid = null; });
+      s.cid = from;
+      save(); broadcast(); renderLobby(); render();
+    }
+  } else if (m.t === 'roll'){
+    if (S.phase === 'play' && !S.over && !busy && kind(S.turn) === 'remote' && S.players[S.turn].cid === from && m.seq === S.seq) roll();
+  }
+}
+async function joinRoom(code){
+  gen++; stopConfetti(); busy = false; pending = null; hostAway = false;
+  ['setup', 'overBox', 'lobby'].forEach(id => { $(id).hidden = true; });
+  S = blankState(freshPlayers(), 'joining');
+  net = {room: {code, present: new Set()}, role: 'guest'};
+  render(); placePawns();
+  let room;
+  try{
+    room = await Online.join({game: 'snakes', code, on: {
+      msg: onGuestMsg,
+      hostGone: () => { hostAway = true; render(); },
+      hostBack: () => { hostAway = false; room.send({t: 'hello'}); render(); },
+      join: () => { render(); renderLobby(); },
+      leave: () => { render(); renderLobby(); }
+    }});
+  }catch(e){ leaveRoom(e.message); return; }
+  net = {room, role: 'guest'};
+  store.set('guest', {code: room.code});
+  room.send({t: 'hello'});
+  const g = gen;
+  setTimeout(() => { if (g === gen && isGuest() && S.phase === 'joining') leaveRoom(`No game found with code ${code}.`); }, 7000);
+}
+function onGuestMsg(m){
+  if (m.t === 'state'){ if (busy) pending = m.S; else applyState(m.S); }
+  else if (m.t === 'move'){
+    if (S.phase === 'play' && m.seq === S.seq && !busy) playMove(m.i, m.d);
+    else net.room.send({t: 'hello'});
+  } else if (m.t === 'closed') leaveRoom('The host ended the online game.');
+}
+function applyState(ns){
+  const first = S.phase === 'joining';
+  S = ns; pending = null; waitingRoll = false;
+  if (pawnEls.length !== S.players.length) buildPawns();
+  if (S.phase === 'lobby') showLobby(); else $('lobby').hidden = true;
+  if (!S.over){ $('overBox').hidden = true; stopConfetti(); }
+  render(); placePawns(); renderLobby();
+  if (S.over) showOver();
+  if (first && S.phase === 'play') toast(mine(S.turn) || S.players.some((_, i) => mine(i)) ? 'Joined the game' : 'Watching this game');
+}
+function leaveRoom(msg){
+  if (net && net.room.close) net.room.close();
+  net = null; hostAway = false;
+  store.set('guest', null);
+  Online.clearUrl();
+  gen++; busy = false; pending = null;
+  ['lobby', 'overBox'].forEach(id => { $(id).hidden = true; });
+  stopConfetti();
+  offlineBoot();
+  if (msg) toast(msg);
+}
+/* Host stops the online game: online seats become computer players and play carries on here. */
+function endOnline(){
+  if (!net) return;
+  net.room.send({t: 'closed'}); net.room.close(); net = null;
+  S.online = null;
+  S.players.forEach(p => { if (p.kind === 'remote'){ p.kind = 'cpu'; p.cpu = true; p.cid = null; } });
+  $('lobby').hidden = true;
+  if (S.phase === 'lobby'){ S.phase = 'play'; store.set('game', null); syncSetup(); $('setup').hidden = false; }
+  save(); render(); placePawns(); beginTurn();
+}
+function showLobby(){ $('lobby').hidden = false; renderLobby(); }
+function renderLobby(){
+  if (!net || $('lobby').hidden || !S) return;
+  const lobby = S.phase === 'lobby', host = isHost();
+  $('lobbyCode').textContent = net.room.code || '';
+  $('lobbySub').textContent = lobby ? (host ? 'Send this code or link to the other players.' : 'Waiting for the host to start.') : 'Game in progress.';
+  $('lobbySeats').innerHTML = S.players.map((p, i) => {
+    const k = kind(i);
+    let st;
+    if (k === 'cpu') st = 'Computer';
+    else if (k === 'local') st = host ? 'This device' : 'Host';
+    else if (isGuest() && p.cid === Online.me) st = 'You';
+    else if (!p.cid) st = 'Waiting…';
+    else st = present(p.cid) ? 'Joined' : 'Away';
+    const open = lobby && isGuest() && k === 'remote' && (!p.cid || !present(p.cid)) && p.cid !== Online.me;
+    return `<li><span class="dot" style="background:${PCOLS[i].c}"></span><span class="nm">${p.name}</span>` +
+      (open ? `<button class="btn" type="button" data-seat="${i}">Take seat</button>` : `<span class="st ${st === 'Joined' || st === 'You' ? 'ok' : ''}">${st}</span>`) + '</li>';
+  }).join('');
+  const go = $('btnLobbyGo'), leave = $('btnLobbyLeave');
+  if (lobby){
+    const ready = S.players.every((p, i) => kind(i) !== 'remote' || present(p.cid));
+    go.hidden = !host; go.disabled = !ready; go.textContent = ready ? 'START' : 'WAITING FOR PLAYERS';
+    leave.textContent = host ? 'Cancel' : 'Leave';
+  } else {
+    go.hidden = false; go.disabled = false; go.textContent = 'BACK TO GAME';
+    leave.textContent = host ? 'End online game' : 'Leave game';
+  }
+}
+function guestRoll(){
+  waitingRoll = true; render();
+  net.room.send({t: 'roll', seq: S.seq});
+  const seq = S.seq;
+  setTimeout(() => { if (waitingRoll && S.seq === seq){ waitingRoll = false; net && net.room.send({t: 'hello'}); render(); } }, 4000);
 }
 
 /* ---------- Input ---------- */
-const tapRoll = () => { if (S && !S.over && !isCpu(S.turn) && !busy) roll(); };
+const tapRoll = () => {
+  if (!canRoll()) return;
+  if (isGuest()) guestRoll(); else roll();
+};
 $('btnRoll').addEventListener('click', tapRoll);
 $('die').addEventListener('click', tapRoll);
 document.addEventListener('keydown', e => {
-  if ((e.key === ' ' || e.key === 'r' || e.key === 'R') && [...document.querySelectorAll('.overlay')].every(o => o.hidden) && !e.target.closest('button')){ e.preventDefault(); tapRoll(); }
+  if ((e.key === ' ' || e.key === 'r' || e.key === 'R') && [...document.querySelectorAll('.overlay')].every(o => o.hidden) && !e.target.closest('button,input')){ e.preventDefault(); tapRoll(); }
 });
-$('btnNew').addEventListener('click', () => { syncSetup(); $('setup').hidden = false; });
-$('btnStart').addEventListener('click', () => { store.set('cfg', cfg); $('setup').hidden = true; newGame(); });
+$('btnNew').addEventListener('click', () => { syncSetup(); $('setupErr').hidden = true; $('setup').hidden = false; });
+$('btnStart').addEventListener('click', async () => {
+  store.set('cfg', cfg);
+  const players = freshPlayers(), btn = $('btnStart');
+  if (net){ net.room.send({t: 'closed'}); net.room.close(); net = null; }
+  if (!players.some(p => p.kind === 'remote')){ $('setup').hidden = true; newGame(players); return; }
+  btn.disabled = true; btn.textContent = 'CONNECTING…'; $('setupErr').hidden = true;
+  try{
+    gen++; stopConfetti(); busy = false; pending = null;
+    S = blankState(players, 'lobby');
+    await hostRoom();
+  }catch(e){
+    net = null;
+    $('setupErr').textContent = e.message; $('setupErr').hidden = false;
+    return;
+  }finally{ btn.disabled = false; btn.textContent = 'START'; }
+  $('setup').hidden = true; $('overBox').hidden = true;
+  save(); render(); placePawns(); showLobby();
+});
+$('joinForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const code = Online.cleanCode($('joinCode').value);
+  if (code.length !== 5){ $('setupErr').textContent = 'Codes are 5 letters and numbers.'; $('setupErr').hidden = false; return; }
+  if (net && isHost()){ net.room.send({t: 'closed'}); net.room.close(); net = null; }
+  joinRoom(code);
+});
+$('btnShare').addEventListener('click', async () => {
+  const r = await Online.share(net.room.link, 'Join my Snakes & Ladders game');
+  if (r === 'copied') toast('Link copied');
+  else if (r === 'failed') toast('Code: ' + net.room.code);
+});
+$('lobbySeats').addEventListener('click', e => {
+  const b = e.target.closest('button[data-seat]');
+  if (b && isGuest()) net.room.send({t: 'claim', seat: +b.dataset.seat});
+});
+$('btnLobbyGo').addEventListener('click', () => {
+  if (S.phase !== 'lobby'){ $('lobby').hidden = true; return; }
+  if (!isHost()) return;
+  $('lobby').hidden = true;
+  S.phase = 'play';
+  save(); broadcast(); render(); placePawns(); beginTurn();
+});
+$('btnLobbyLeave').addEventListener('click', () => {
+  if (isGuest()) leaveRoom();
+  else if (S.phase === 'lobby'){ net.room.send({t: 'closed'}); net.room.close(); net = null; store.set('game', null); $('lobby').hidden = true; offlineBoot(); syncSetup(); $('setup').hidden = false; }
+  else endOnline();
+});
+$('btnRoom').addEventListener('click', showLobby);
 $('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
 $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
-$('btnAgain').addEventListener('click', newGame);
+$('btnAgain').addEventListener('click', () => newGame(S.players.map(p => Object.assign({}, p, {pos: 0, ladders: 0, snakes: 0}))));
 $('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
-['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.started) $(id).hidden = true; }));
+['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.started && S.phase !== 'joining') $(id).hidden = true; }));
+$('lobby').addEventListener('click', e => { if (e.target.id === 'lobby' && S.phase !== 'lobby') $('lobby').hidden = true; });
 Kit.soundButton($('btnSound'));
 
 function seatRows(){
@@ -447,8 +737,8 @@ function seatRows(){
   for (let t = 0; t < cfg.count; t++){
     const row = document.createElement('div');
     row.className = 'seatRow';
-    row.innerHTML = `<span class="nm"><span class="dot" style="background:${PCOLS[t].c}"></span>${PCOLS[t].name}</span><div class="seg"><button type="button" data-v="h">Person</button><button type="button" data-v="c">Computer</button></div>`;
-    seg(row.querySelector('.seg'), () => cfg.cpu[t] ? 'c' : 'h', v => { cfg.cpu[t] = v === 'c'; });
+    row.innerHTML = `<span class="nm"><span class="dot" style="background:${PCOLS[t].c}"></span>${PCOLS[t].name}</span><div class="seg"><button type="button" data-v="h">Person</button><button type="button" data-v="c">Computer</button><button type="button" data-v="o">Online</button></div>`;
+    seg(row.querySelector('.seg'), () => cfg.seats[t], v => { cfg.seats[t] = v; });
     box.appendChild(row);
   }
 }
@@ -460,18 +750,36 @@ const syncers = [
 function syncSetup(){ syncers.forEach(f => f()); seatRows(); }
 
 /* ---------- Boot ---------- */
+function offlineBoot(){
+  const saved = store.get('game', null);
+  if (saved && saved.players && !saved.over && !saved.online && saved.phase !== 'lobby'){
+    S = saved; S.started = true; S.phase = S.phase || 'play'; S.seq = S.seq || 0; S.gid = S.gid || 'g';
+    render(); placePawns(); beginTurn();
+  } else {
+    S = blankState(freshPlayers(), 'play'); S.started = false;
+    render(); placePawns();
+    syncSetup(); $('setup').hidden = false;
+  }
+}
+async function rehost(){
+  try{ await hostRoom(S.online.code); }
+  catch(e){ toast('Could not reconnect the online game. Online players will be played by the computer.'); }
+  broadcast(); render();
+  if (S.phase === 'lobby') showLobby(); else beginTurn();
+}
 drawBoard();
 Kit.fitSquare($('boardArea'), $('board'));
-const saved = store.get('game', null);
-if (saved && saved.players && !saved.over){
-  S = saved; S.started = true;
-  render(); placePawns(); beginTurn();
-} else {
-  S = {players: [{cpu: false, name: 'You', pos: 0, ladders: 0, snakes: 0}, {cpu: true, name: 'Computer', pos: 0, ladders: 0, snakes: 0}],
-    finish: cfg.finish, six: cfg.six, turn: 0, die: 0, note: '', over: false, rolls: 0};
-  render(); placePawns();
-  syncSetup(); $('setup').hidden = false;
-}
+(function boot(){
+  const urlCode = Online.codeFromUrl(), guest = store.get('guest', null), saved = store.get('game', null);
+  const hosting = saved && saved.online && !saved.over ? saved : null;
+  if (hosting && (!urlCode || urlCode === hosting.online.code)){
+    Online.clearUrl();
+    S = hosting; S.started = true;
+    render(); placePawns(); rehost();
+  } else if (urlCode || (guest && guest.code)){
+    joinRoom(urlCode || guest.code);
+  } else offlineBoot();
+})();
 })();
 </script>
 </body>

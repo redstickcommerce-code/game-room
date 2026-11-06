@@ -18,15 +18,24 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | Gin Rummy | 2, or vs Computer (Easy / Medium / Hard) | Upcard offer, knocking at 10, gin bonus, lay-offs, undercuts, dead hands; play to 100, 150 or 250 with game, box and shutout bonuses |
 | Yacht | 1–4, any mix of people and computer (Easy / Medium / Hard) | Five-dice scorecard game: upper bonus, extra-Yacht bonus and joker rule |
 | Last Card | 2–4, any mix of people and computer (Easy / Medium / Hard) | Colour-matching shedding game: Skip, Reverse, +2, Wild and Wild +4, the last-card call, one round or play to 250 / 500 |
-| Snakes & Ladders | 2–4, any mix of people and computer | Pure-luck race to 100: 7 ladders, 9 snakes; bounce-back, exact-roll or any-roll finish, optional extra roll on a 6 |
+| Snakes & Ladders | 2–4, any mix of people, computer and **online** players | Pure-luck race to 100: 7 ladders, 9 snakes; bounce-back, exact-roll or any-roll finish, optional extra roll on a 6. First game with online play |
 
 Each game saves the game in progress to the browser, so closing the tab doesn't lose it.
+
+## Online play
+
+Snakes & Ladders can be played with people on other devices. In setup, make a seat **Online**, press Start, and send the 5-letter code or the share link. Others open the link (or type the code under *Join an online game*). The host's browser runs the game; guests send their rolls to it. If an online player drops out, the computer rolls for them until they reopen the page, and they rejoin their seat automatically.
+
+It runs on [Supabase Realtime](https://supabase.com/docs/guides/realtime) (broadcast and presence on public channels, no database tables), from the `game-room` project. The project URL and publishable key are in `assets/online.js`; the key is meant to be public. Room codes are hard to guess but not secret, so anyone with a code can watch or join an open seat.
+
+To add online play to another game, load `assets/online.js` and follow the pattern in `games/snakes`: host-owned state, guests send actions, the host broadcasts each move and then the full state.
 
 ## Structure
 
 ```
 index.html              game-select carousel (the game list lives in the GAMES array near the bottom)
 assets/kit.css, kit.js  shared look and helpers (buttons, dialogs, sounds, confetti) used by the newer games
+assets/online.js        online rooms over Supabase Realtime (used by Snakes & Ladders)
 assets/covers/*.svg     300×400 cover art for the carousel
 games/<id>/index.html   one self-contained page per game
 ```
