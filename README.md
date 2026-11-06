@@ -18,6 +18,7 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | Gin Rummy | 2, or vs Computer (Easy / Medium / Hard) | Upcard offer, knocking at 10, gin bonus, lay-offs, undercuts, dead hands; play to 100, 150 or 250 with game, box and shutout bonuses |
 | Yacht | 1–4, any mix of people and computer (Easy / Medium / Hard) | Five-dice scorecard game: upper bonus, extra-Yacht bonus and joker rule |
 | Last Card | 2–4, any mix of people and computer (Easy / Medium / Hard) | Colour-matching shedding game: Skip, Reverse, +2, Wild and Wild +4, the last-card call, one round or play to 250 / 500 |
+| Snakes & Ladders | 2–4, any mix of people and computer | Pure-luck race to 100: 7 ladders, 9 snakes; bounce-back, exact-roll or any-roll finish, optional extra roll on a 6 |
 
 Each game saves the game in progress to the browser, so closing the tab doesn't lose it.
 
