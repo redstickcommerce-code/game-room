@@ -376,6 +376,15 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   </div>
 </div>
 
+<div class="overlay" id="quitBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="quitTitle">
+    <h2 id="quitTitle">Quit game?</h2>
+    <p class="sub" id="quitSub"></p>
+    <button class="big-btn btn-roll go" id="btnQuitYes" type="button">QUIT</button>
+    <button class="ghost go" id="btnQuitNo" type="button">Keep playing</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <!-- Rules -->
@@ -984,7 +993,23 @@ $('startGame').addEventListener('click', async () => {
   newGame(seats, true);
   showLobby();
 });
-$('btnNew').addEventListener('click', openSetup);
+$('btnNew').addEventListener('click', () => { if (net) openQuit(); else openSetup(); });
+/* Quit an online game. A guest leaves (the computer takes their seat); the host ends it for everyone. */
+function openQuit(){
+  $('quitSub').textContent = isGuest() ? "You'll leave the game and the computer will take your turns." : 'This ends the game for everyone.';
+  $('quitBox').hidden = false;
+}
+function quitOnline(){
+  if (!net) return;
+  if (isGuest()) net.room.send({t:'quit'});
+  else { net.room.send({t:'closed'}); try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+  try{ localStorage.removeItem(GUEST_KEY); }catch(e){}
+  $('btnQuitYes').disabled = true;
+  setTimeout(() => { if (net) net.room.close(); net = null; location.href = '../../index.html'; }, 400);   // let the message go out first
+}
+$('btnQuitYes').addEventListener('click', quitOnline);
+$('btnQuitNo').addEventListener('click', () => { $('quitBox').hidden = true; });
+$('quitBox').addEventListener('click', e => { if (e.target.id === 'quitBox') $('quitBox').hidden = true; });
 Kit.soundButton($('btnSound'));
 $('btnRules').addEventListener('click', () => $('rulesBox').hidden = false);
 $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
@@ -1007,7 +1032,7 @@ function renderRoom(){
   const b = $('btnRoom');
   b.hidden = !net;
   if (net) b.innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
-  $('btnNew').hidden = isGuest();
+  $('btnNew').textContent = net ? 'Quit' : 'New game';
 }
 async function hostRoom(code){
   const room = await Online.host({game: 'hotdice', code, on: {
@@ -1046,6 +1071,15 @@ function onHostMsg(m, from){
   } else if (m.t === 'act'){
     if (S.lobby || S.phase === 'over' || kindOf(P()) !== 'remote' || P().cid !== from) return;
     run(m.a, m.idx);
+  } else if (m.t === 'quit'){
+    /* A guest quit: in the waiting room their seat opens up again; in a game the computer takes it over. */
+    const p = S.players.find(q => q.cid === from);
+    if (!p) return;
+    p.cid = null;
+    if (S.lobby) p.name = 'Player ' + (S.players.indexOf(p) + 1);
+    else { p.kind = 'cpu'; p.cpu = true; toast(`${p.name} left · the computer is playing for them`); }
+    save(); render(); renderLobby();
+    if (!S.lobby && S.phase !== 'over' && P() === p && !busy) maybeCpu();
   }
 }
 /* Guest: ask for a name, then join. auto = rejoining after a reload, so skip the name step. */

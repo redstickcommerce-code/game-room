@@ -201,6 +201,15 @@
   </div>
 </div>
 
+<div class="overlay" id="quitBox" hidden>
+  <div class="sheet center" role="dialog" aria-labelledby="quitTitle">
+    <h2 id="quitTitle">Quit game?</h2>
+    <p class="sub" id="quitSub"></p>
+    <button class="btn primary big go" id="btnQuitYes" type="button">QUIT</button>
+    <button class="btn go" id="btnQuitNo" type="button" style="width:100%">Keep playing</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="alert" hidden></div>
 
 <script src="../../assets/kit.js"></script>
@@ -537,7 +546,7 @@ function render(){
   die.setAttribute('aria-label', S.die ? `Die shows ${S.die}${can ? '. Roll the die' : ''}` : 'Roll the die');
   $('btnRoll').disabled = !can;
   $('btnRoll').textContent = can && myCount() > 1 ? `ROLL · ${label(t).toUpperCase()}` : 'ROLL';
-  $('btnNew').hidden = isGuest();
+  $('btnNew').textContent = net ? 'Quit' : 'New';
   $('btnRoom').hidden = !net;
   if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
 }
@@ -579,6 +588,15 @@ function onHostMsg(m, from){
     }
   } else if (m.t === 'roll'){
     if (S.phase === 'play' && !S.over && !busy && kind(S.turn) === 'remote' && S.players[S.turn].cid === from && m.seq === S.seq) roll();
+  } else if (m.t === 'quit'){
+    /* A guest quit: in the waiting room their seat opens up again; in a game the computer takes it over. */
+    const i = S.players.findIndex(p => p.cid === from);
+    if (i < 0) return;
+    const p = S.players[i];
+    p.cid = null;
+    if (S.phase !== 'lobby'){ p.kind = 'cpu'; p.cpu = true; toast(`${p.name} left · the computer is playing for them`); }
+    save(); broadcast(); render(); renderLobby();
+    if (S.phase === 'play' && !S.over && S.turn === i && !busy) beginTurn();
   }
 }
 async function joinRoom(code){
@@ -688,7 +706,26 @@ $('die').addEventListener('click', tapRoll);
 document.addEventListener('keydown', e => {
   if ((e.key === ' ' || e.key === 'r' || e.key === 'R') && [...document.querySelectorAll('.overlay')].every(o => o.hidden) && !e.target.closest('button,input')){ e.preventDefault(); tapRoll(); }
 });
-$('btnNew').addEventListener('click', () => { syncSetup(); $('setupErr').hidden = true; $('setup').hidden = false; });
+$('btnNew').addEventListener('click', () => {
+  if (net){ openQuit(); return; }
+  syncSetup(); $('setupErr').hidden = true; $('setup').hidden = false;
+});
+/* Quit an online game. A guest leaves (the computer takes their seat); the host ends it for everyone. */
+function openQuit(){
+  $('quitSub').textContent = isGuest() ? "You'll leave the game and the computer will take your turns." : 'This ends the game for everyone.';
+  $('quitBox').hidden = false;
+}
+function quitOnline(){
+  if (!net) return;
+  if (isGuest()) net.room.send({t: 'quit'});
+  else { net.room.send({t: 'closed'}); store.set('game', null); }
+  store.set('guest', null);
+  $('btnQuitYes').disabled = true;
+  setTimeout(() => { if (net && net.room.close) net.room.close(); net = null; location.href = '../../index.html'; }, 400);   // let the message go out first
+}
+$('btnQuitYes').addEventListener('click', quitOnline);
+$('btnQuitNo').addEventListener('click', () => { $('quitBox').hidden = true; });
+$('quitBox').addEventListener('click', e => { if (e.target.id === 'quitBox') $('quitBox').hidden = true; });
 $('btnStart').addEventListener('click', async () => {
   store.set('cfg', cfg);
   const players = freshPlayers(), btn = $('btnStart');
