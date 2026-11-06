@@ -415,7 +415,8 @@ function renderCard(){
   let bestId = null, bv = -1;
   for (const id in opts) if (opts[id] > bv){ bv = opts[id]; bestId = id; }
   const tots = P.map(p => totals(p.card));
-  const th = (p, i) => `<th class="${i === t && !S.over ? 'on' : ''}" title="${p.name}">${p.name}</th>`;
+  const short = P.length > 2 ? n => n.replace('Player ', 'P').replace('Computer', 'CPU') : n => n;   // narrow columns on phones
+  const th = (p, i) => `<th class="${i === t && !S.over ? 'on' : ''}" title="${p.name}">${short(p.name)}</th>`;
   let o = `<thead><tr><th class="cat">Round ${Math.min(S.round, 13)} of 13</th>${P.map(th).join('')}</tr></thead><tbody>`;
   const row = c => {
     o += `<tr><th class="cat" scope="row">${c.name}${c.note ? ` <small>${c.note}</small>` : ''}</th>`;
