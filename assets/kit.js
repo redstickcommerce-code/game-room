@@ -114,5 +114,16 @@ function fitSquare(area, el){
   new ResizeObserver(fit).observe(area);
 }
 
-window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg, fitSquare};
+/* A close button in the corner of a dialog sheet, easy to hit on a phone. If there is no game behind the sheet to
+   return to, it goes back to the game list instead. */
+function sheetClose(overlay, canClose){
+  const sheet = overlay && overlay.querySelector('.sheet');
+  if (!sheet || sheet.querySelector('.sheetX')) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'sheetX'; b.textContent = '✕'; b.setAttribute('aria-label', 'Close');
+  b.addEventListener('click', () => { if (canClose()) overlay.hidden = true; else location.href = '../../index.html'; });
+  sheet.insertBefore(b, sheet.firstChild);
+}
+
+window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg, fitSquare, sheetClose};
 })();

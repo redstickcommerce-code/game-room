@@ -115,6 +115,11 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
   .pcard .swatch{width:22px;height:22px}
 }
 
+/* Close button in a sheet's corner; sticky so it stays reachable while a long sheet scrolls */
+.sheetX{position:sticky;top:0;float:right;z-index:2;width:44px;height:44px;margin:-10px -10px 0 10px;padding:0;border-radius:50%;
+  border:1.5px solid var(--line);background:rgba(0,0,0,.35);color:var(--ink);font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.sheetX:active{background:rgba(0,0,0,.55)}
+
 #confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:45}
 
 @media (prefers-reduced-motion: reduce){

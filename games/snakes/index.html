@@ -787,6 +787,7 @@ $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
 $('btnAgain').addEventListener('click', () => newGame(S.players.map(p => Object.assign({}, p, {pos: 0, ladders: 0, snakes: 0}))));
 $('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
 ['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.started && S.phase !== 'joining') $(id).hidden = true; }));
+Kit.sheetClose($('setup'), () => !!(S && S.started && S.phase !== 'joining'));
 $('lobby').addEventListener('click', e => { if (e.target.id === 'lobby' && S.phase !== 'lobby') $('lobby').hidden = true; });
 Kit.soundButton($('btnSound'));
 

@@ -813,6 +813,7 @@ $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
 $('btnAgain').addEventListener('click', () => newGame(S.seats));
 $('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
 ['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.sheetClose($('setup'), () => !!(S));
 $('lobby').addEventListener('click', e => { if (e.target.id === 'lobby' && S && !S.lobby) $('lobby').hidden = true; });
 Kit.soundButton($('btnSound'));
 Kit.fitSquare($('boardArea'), $('board'));

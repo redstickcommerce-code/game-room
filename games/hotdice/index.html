@@ -216,6 +216,11 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 @keyframes glow{to{text-shadow:0 3px 0 var(--navy), 0 0 24px rgba(169,210,60,.7)}}
 .winSub{text-align:center; color:var(--brass); font-family:var(--f-ui); font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin:2px 0 8px}
 
+/* Close button in a sheet's corner; sticky so it stays reachable while a long sheet scrolls */
+.sheetX{position:sticky;top:0;float:right;z-index:2;width:44px;height:44px;margin:-10px -10px 0 10px;padding:0;border-radius:50%;
+  border:1.5px solid var(--line);background:rgba(0,0,0,.35);color:var(--ink);font-size:20px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.sheetX:active{background:rgba(0,0,0,.55)}
+
 /* Online play */
 .sheet .hint{margin:8px 0 0; font-size:14px; color:var(--muted)}
 .sheet .err{margin:14px 0 0; padding:10px 12px; border-radius:10px; background:rgba(255,143,128,.18); color:#ffd6d0; font-weight:600}
@@ -1019,6 +1024,7 @@ $('btnRoll').addEventListener('click', () => act('roll'));
 $('btnBank').addEventListener('click', () => act('bank'));
 $('tray').addEventListener('click', e => { if (!e.target.closest('.die') && S && S.phase==='bust') act('pass'); });
 ['setup','rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id===id && S) $(id).hidden = true; }));
+Kit.sheetClose($('setup'), () => !!(S));
 $('lobby').addEventListener('click', e => { if (e.target.id === 'lobby' && S && !S.lobby) $('lobby').hidden = true; });
 
 /* ---------- Online ---------- */

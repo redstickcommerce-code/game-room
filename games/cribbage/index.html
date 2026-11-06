@@ -609,6 +609,7 @@ $('closeRules').addEventListener('click', () => $('rulesBox').hidden = true);
 $('btnAgain').addEventListener('click', newGame);
 $('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
 ['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S && S.phase !== 'none') $(id).hidden = true; }));
+Kit.sheetClose($('setup'), () => !!(S && S.phase !== 'none'));
 Kit.soundButton($('btnSound'));
 
 const syncers = [

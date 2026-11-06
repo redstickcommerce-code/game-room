@@ -688,6 +688,7 @@ $('btnAgain').addEventListener('click', newGame);
 $('btnChange').addEventListener('click', () => { $('overBox').hidden = true; stopConfetti(); syncSetup(); $('setup').hidden = false; });
 $('promoBox').addEventListener('click', e => { if (e.target.id === 'promoBox'){ pendingPromo = null; $('promoBox').hidden = true; } });
 ['setup', 'rulesBox'].forEach(id => $(id).addEventListener('click', e => { if (e.target.id === id && S) $(id).hidden = true; }));
+Kit.sheetClose($('setup'), () => !!(S));
 Kit.soundButton($('btnSound'));
 
 const syncers = [
