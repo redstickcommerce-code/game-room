@@ -24,7 +24,7 @@ Each game saves the game in progress to the browser, so closing the tab doesn't 
 
 ## Online play
 
-Snakes & Ladders can be played with people on other devices. In setup, make a seat **Online**, press Start, and send the 5-letter code or the share link. Others open the link (or type the code under *Join an online game*). The host's browser runs the game; guests send their rolls to it. If an online player drops out, the computer rolls for them until they reopen the page, and they rejoin their seat automatically.
+Snakes & Ladders can be played with people on other devices. In setup, choose **Online** (you play Red on your device; the other seats are online players or computer), press **Create online game**, and send the 5-letter code or the share link. If someone doesn't turn up, the host can start anyway and the computer takes the empty seat. Others open the link (or type the code under *Join an online game*). The host's browser runs the game; guests send their rolls to it. If an online player drops out, the computer rolls for them until they reopen the page, and they rejoin their seat automatically.
 
 It runs on [Supabase Realtime](https://supabase.com/docs/guides/realtime) (broadcast and presence on public channels, no database tables), from the `game-room` project. The project URL and publishable key are in `assets/online.js`; the key is meant to be public. Room codes are hard to guess but not secret, so anyone with a code can watch or join an open seat.
 
