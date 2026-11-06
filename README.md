@@ -8,7 +8,7 @@ Classic games for phone and iPad, played in the browser. Open `index.html` to ge
 | --- | --- | --- |
 | Checkers | 2, or vs Computer (Easy / Medium / Hard) | Forced captures, multi-jumps, kings, undo, hints |
 | Backgammon | 2, or vs Computer (Easy / Medium / Hard) | Full rules: bar, bearing off, doubles, must-use-both-dice rule, gammons and backgammons, match score. No doubling cube yet. |
-| Hot Dice | 1–6, any mix of humans and computer | Push-your-luck dice |
+| Hot Dice | 1–6, any mix of people, computer and **online** players | Push-your-luck dice |
 | Mancala | 2, or vs Computer | Kalah rules |
 | Dots & Boxes | 2, or vs Computer (Easy / Medium / Hard) | 3×3, 5×5 or 7×7 boards |
 | Dominoes | 2, or vs Computer (Easy / Medium / Hard) | All Fives: double-six set with a spinner, scoring on multiples of 5, played to 100, 150 or 200 |
@@ -24,18 +24,18 @@ Each game saves the game in progress to the browser, so closing the tab doesn't 
 
 ## Online play
 
-Snakes & Ladders can be played with people on other devices. In setup, choose **Online** (you play Red on your device; the other seats are online players or computer), press **Create online game**, and send the 5-letter code or the share link. If someone doesn't turn up, the host can start anyway and the computer takes the empty seat. Others open the link (or type the code under *Join an online game*). The host's browser runs the game; guests send their rolls to it. If an online player drops out, the computer rolls for them until they reopen the page, and they rejoin their seat automatically.
+Snakes & Ladders and Hot Dice can be played with people on other devices. In setup, choose **Online**: the first seat is you on this device, and each other seat is an online player or the computer. Press **Create online game** and send the 5-letter code or the share link. Others open the link (or type the code under *Join an online game*); in Hot Dice they also type their name. If someone doesn't turn up, the host can start anyway and the computer takes the empty seat. The host's browser runs the game and guests send their moves to it. If an online player drops out, the computer plays for them until they reopen the page, and they rejoin their seat automatically.
 
 It runs on [Supabase Realtime](https://supabase.com/docs/guides/realtime) (broadcast and presence on public channels, no database tables), from the `game-room` project. The project URL and publishable key are in `assets/online.js`; the key is meant to be public. Room codes are hard to guess but not secret, so anyone with a code can watch or join an open seat.
 
-To add online play to another game, load `assets/online.js` and follow the pattern in `games/snakes`: host-owned state, guests send actions, the host broadcasts each move and then the full state.
+To add online play to another game, load `assets/online.js` and follow the pattern in `games/snakes` or `games/hotdice`: the host owns the state, guests send actions, and the host broadcasts the state after each change (Snakes & Ladders sends the roll first so guests can replay the move; Hot Dice tags each state with what happened, such as a roll, bust or bank).
 
 ## Structure
 
 ```
 index.html              game-select carousel (the game list lives in the GAMES array near the bottom)
 assets/kit.css, kit.js  shared look and helpers (buttons, dialogs, sounds, confetti) used by the newer games
-assets/online.js        online rooms over Supabase Realtime (used by Snakes & Ladders)
+assets/online.js        online rooms over Supabase Realtime (used by Snakes & Ladders and Hot Dice)
 assets/covers/*.svg     300×400 cover art for the carousel
 games/<id>/index.html   one self-contained page per game
 ```
