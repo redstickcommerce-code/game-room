@@ -548,7 +548,7 @@ function render(){
   $('btnRoll').textContent = can && myCount() > 1 ? `ROLL · ${label(t).toUpperCase()}` : 'ROLL';
   $('btnNew').textContent = net ? 'Quit' : 'New';
   $('btnRoom').hidden = !net;
-  if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
+  if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span><span class="wide">${net.room.code}</span>`;
 }
 
 /* ---------- Online ---------- */

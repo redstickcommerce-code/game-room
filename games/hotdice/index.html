@@ -239,7 +239,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .seatList .st{color:var(--muted)}
 .seatList .st.ok{color:var(--brass)}
 .seatList .ghost{min-height:40px; padding:6px 14px}
-.ghost.room{display:inline-flex; align-items:center; gap:8px; color:var(--ink); font-family:var(--f-display); font-weight:400; letter-spacing:.08em}
+.ghost.room{display:inline-flex; align-items:center; justify-content:center; gap:8px; color:var(--ink); font-family:var(--f-display); font-weight:400; letter-spacing:.08em}
 .live{width:10px; height:10px; border-radius:50%; background:var(--brass); box-shadow:0 0 8px var(--brass)}
 .live.off{background:var(--bad); box-shadow:0 0 8px var(--bad)}
 .toast{position:fixed; left:50%; bottom:max(24px,env(safe-area-inset-bottom,0px)); translate:-50% 0; z-index:50; max-width:calc(100% - 32px);
@@ -1056,7 +1056,7 @@ function toast(text){
 function renderRoom(){
   const b = $('btnRoom');
   b.hidden = !net;
-  if (net) b.innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
+  if (net) b.innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span><span class="wide">${net.room.code}</span>`;
   $('btnNew').innerHTML = net ? 'Quit' : 'New<span class="wide">&nbsp;game</span>';
 }
 async function hostRoom(code){

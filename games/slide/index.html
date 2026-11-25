@@ -762,7 +762,7 @@ function render(){
   else { main.textContent = 'DRAW'; main.disabled = !(human && S.phase === 'draw'); }
   $('btnNew').textContent = net ? 'Quit' : 'New';
   $('btnRoom').hidden = !net;
-  if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
+  if (net) $('btnRoom').innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span><span class="wide">${net.room.code}</span>`;
   renderDeck(); renderMarks();
 }
 
