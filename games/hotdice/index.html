@@ -263,9 +263,12 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 }
 @media (max-width: 560px){
   :root{--die: clamp(48px, 13vmin, 70px); --die-sm: clamp(28px, 7vmin, 40px)}
+  /* header stays two rows (logo, then buttons) even with the online room code and Quit added */
   .head{gap:8px}
-  .headbtns{gap:6px}
-  .ghost{padding:8px 12px; min-height:40px; font-size:15px}
+  .headbtns{gap:6px; flex-wrap:nowrap; width:100%}
+  .headbtns .wide{display:none}
+  .ghost{padding:8px 12px; min-height:40px; min-width:44px; font-size:15px; white-space:nowrap}
+  .ghost.room{gap:6px; letter-spacing:.04em; padding:8px 10px}
   .rail{padding:8px 12px}
   .player{padding:8px 12px}
   .player .nm{font-size:18px}
@@ -284,11 +287,11 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="logo">HOT DICE</div>
     <div class="turninfo" id="turninfo"></div>
     <div class="headbtns">
-      <a class="ghost home" href="../../index.html" aria-label="Back to all games">&#8592; Games</a>
+      <a class="ghost home" href="../../index.html" aria-label="Back to all games">&#8592;<span class="wide">&nbsp;Games</span></a>
       <button class="ghost room" id="btnRoom" type="button" aria-label="Online game details" hidden></button>
       <button class="ghost" id="btnSound" type="button">♪</button>
-      <button class="ghost" id="btnRules" type="button">Rules</button>
-      <button class="ghost" id="btnNew" type="button">New game</button>
+      <button class="ghost" id="btnRules" type="button" aria-label="Rules">?<span class="wide">&nbsp;Rules</span></button>
+      <button class="ghost" id="btnNew" type="button">New<span class="wide">&nbsp;game</span></button>
     </div>
   </header>
 
@@ -1054,7 +1057,7 @@ function renderRoom(){
   const b = $('btnRoom');
   b.hidden = !net;
   if (net) b.innerHTML = `<span class="live${isGuest() && hostAway ? ' off' : ''}"></span>${net.room.code}`;
-  $('btnNew').textContent = net ? 'Quit' : 'New game';
+  $('btnNew').innerHTML = net ? 'Quit' : 'New<span class="wide">&nbsp;game</span>';
 }
 async function hostRoom(code){
   const room = await Online.host({game: 'hotdice', code, on: {
