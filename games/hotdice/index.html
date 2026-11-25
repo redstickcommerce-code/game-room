@@ -603,11 +603,20 @@ function dieEl(d, small){
 function placeDie(el, d){
   const tray = $('tray');
   const W = tray.clientWidth, H = tray.clientHeight, s = el.offsetWidth || 90;
-  const pad = 24;
-  const x = Math.min(Math.max(d.x*W - s/2, pad), W - s - pad);
-  const y = Math.min(Math.max(d.y*H - s/2, pad), H - s - pad);
-  el.style.transform = `translate(${x}px, ${y - (d.sel ? 8 : 0)}px) rotate(${d.sel ? d.r*0.4 : d.r}deg) scale(${d.sel ? 1.08 : 1})`;
+  const rot = d.sel ? d.r*0.4 : d.r, sc = d.sel ? 1.08 : 1, lift = d.sel ? 8 : 0;
+  // keep the whole tilted die (plus its selection ring and drop edge) inside the stitched border
+  const a = Math.abs(rot) * Math.PI / 180;
+  const half = s/2 * (Math.cos(a) + Math.sin(a)) * sc + (d.sel ? 8 : 0);
+  const pad = 20;
+  const cx = Math.min(Math.max(d.x*W, pad + half), W - pad - half);
+  const cy = Math.min(Math.max(d.y*H, pad + half + lift), H - pad - half - 6);
+  el.style.transform = `translate(${cx - s/2}px, ${cy - s/2 - lift}px) rotate(${rot}deg) scale(${sc})`;
 }
+// the tray can change size without a window resize (fonts loading, the phone's toolbar): re-place the dice where they are
+if (window.ResizeObserver) new ResizeObserver(() => {
+  if (!S) return;
+  trayEls.forEach((el, i) => { if (el && S.dice[i]) placeDie(el, S.dice[i]); });
+}).observe($('tray'));
 let lastRollAnim = false;
 const trayEls = [null,null,null,null,null,null];
 let lastCur = -1;
