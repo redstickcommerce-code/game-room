@@ -252,11 +252,27 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   .bar i{transition:none}
 }
 @media (max-aspect-ratio: 1/1), (max-width: 760px){
-  .app{grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto minmax(0,1fr) auto;
-       grid-template-areas:"head" "side" "tray" "act"}
+  /* the tray row never shrinks below the tray's own minimum, so on short screens the page scrolls instead of the tray covering the turn total */
+  .app{grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto 1fr auto;
+       grid-template-areas:"head" "side" "tray" "act"; gap:10px; min-height:100%; height:auto}
+  .trayWrap{min-height:auto; gap:10px}
+  .tray{min-height:190px}
   .side .guide{display:none}
   .players{flex-direction:row; overflow-x:auto; scroll-snap-type:x mandatory}
-  .player{min-width: 168px; flex:1 0 168px; scroll-snap-align:start}
+  .player{min-width: 150px; flex:1 0 150px; scroll-snap-align:start}
+}
+@media (max-width: 560px){
+  :root{--die: clamp(48px, 13vmin, 70px); --die-sm: clamp(28px, 7vmin, 40px)}
+  .head{gap:8px}
+  .headbtns{gap:6px}
+  .ghost{padding:8px 12px; min-height:40px; font-size:15px}
+  .rail{padding:8px 12px}
+  .player{padding:8px 12px}
+  .player .nm{font-size:18px}
+  .player .tag{font-size:11px; letter-spacing:.06em; margin-left:4px}
+  .player .sc{font-size:24px}
+  .status{padding:8px 14px}
+  .big-btn{min-height:58px}
 }
 </style>
 </head>
