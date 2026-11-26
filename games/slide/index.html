@@ -67,7 +67,10 @@
 @keyframes pulse{50%{opacity:.55}}
 .thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
 @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
-.seatRow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.seatRow{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.seatRow .nameIn{flex:1 1 150px}
+.lobbyName{margin:4px 0 0;text-align:left}
+.lobbyName .nameIn{margin-top:6px}
 .seatRow .swatch{width:26px;height:26px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}
 .seatRow .nm{font-family:var(--f-ui);font-weight:700;font-size:19px;min-width:64px}
 .choices{display:flex;flex-direction:column;gap:10px;margin-top:14px}
@@ -160,6 +163,7 @@
     <p class="sub" id="lobbySub"></p>
     <div class="code" id="lobbyCode" aria-label="Game code"></div>
     <button class="btn" id="btnShare" type="button">Share link</button>
+    <div class="lobbyName" id="lobbyName" hidden><h4>Your name</h4></div>
     <ul class="seatList" id="lobbySeats"></ul>
     <button class="btn primary big go" id="btnLobbyGo" type="button">START</button>
     <button class="btn go" id="btnLobbyNow" type="button" style="width:100%" hidden>Start now · computer plays open seats</button>
@@ -414,6 +418,7 @@ const cfg = Object.assign({count: 2, level: 'medium'}, store.get('cfg', {}));
 if (!cfg.cpu) cfg.cpu = [false, true, true, true];
 if (!cfg.mode) cfg.mode = 'local';                       // 'local' | 'online'
 if (!cfg.oseats) cfg.oseats = ['h', 'o', 'o', 'o'];      // online: seat 0 is the host, others o online / c computer
+if (!cfg.names) cfg.names = ['', '', '', ''];           // names typed for people on this device
 let S = null, moves = [], pick = null, gen = 0, busy = false, thinking = false, disp = null;
 let net = null, pending = null, waiting = false, hostAway = false, shownOver = '';
 const gone = new Set();   // host: guests seen leaving (their claimed seat is free again)
@@ -425,7 +430,9 @@ const kindOf = t => S.seats[t].kind || (S.seats[t].cpu ? 'cpu' : 'local');
 const present = cid => !!(net && cid && net.room.present && net.room.present.has(cid));
 const mine = t => isGuest() ? S.seats[t].cid === Online.me : kindOf(t) === 'local';
 const myCount = () => S.seats.filter((_, t) => mine(t)).length;
-const nameOf = t => myCount() === 1 && mine(t) ? 'You' : COLORS[S.seats[t].color].name;
+const isMe = t => myCount() === 1 && mine(t);
+const seatName = t => Kit.cleanName(S.seats[t].name) || COLORS[S.seats[t].color].name;
+const nameOf = t => isMe(t) && !S.seats[t].named ? 'You' : seatName(t);
 const noteText = () => (S.note || '').replace(/@(\d)/g, (_, k) => nameOf(+k));
 /* Can someone on this device act for the seat whose turn it is? */
 const canAct = () => !!S && !S.lobby && S.phase !== 'over' && mine(S.turn) && !busy && !waiting && !(isGuest() && hostAway);
@@ -443,7 +450,8 @@ function save(fx){
 function freshSeats(){
   const cols = COLOR_SETS[cfg.count];
   const kinds = cfg.mode === 'online' ? ['h'].concat(cfg.oseats.slice(1)) : cfg.cpu.map(c => c ? 'c' : 'h');
-  return cols.map((color, t) => { const k = kinds[t]; return {color, kind: k === 'c' ? 'cpu' : k === 'o' ? 'remote' : 'local', cpu: k === 'c', cid: null}; });
+  const online = cfg.mode === 'online', typed = t => kinds[t] !== 'h' ? '' : online ? Kit.myName() : Kit.cleanName(cfg.names[t]);
+  return cols.map((color, t) => { const k = kinds[t]; return {color, kind: k === 'c' ? 'cpu' : k === 'o' ? 'remote' : 'local', cpu: k === 'c', cid: null, name: typed(t), named: !!typed(t)}; });
 }
 function newGame(seats, lobby){
   gen++; stopConfetti(); busy = false; thinking = false; pending = null; waiting = false;
@@ -487,7 +495,7 @@ function commit(m){
     waiting = true; pick = null; render();
     net.room.send({t: 'move', idx, seq: S.seq});
     const seq = S.seq;
-    setTimeout(() => { if (waiting && S.seq === seq){ waiting = false; if (net) net.room.send({t: 'hello'}); render(); } }, 4000);
+    setTimeout(() => { if (waiting && S.seq === seq){ waiting = false; if (net) net.room.send({t: 'hello', name: Kit.myName()}); render(); } }, 4000);
     return;
   }
   if (isHost()) net.room.send({t: 'apply', idx, seq: S.seq});
@@ -537,7 +545,7 @@ function finish(w){
 function showOver(){
   if (shownOver === S.gid) return;
   shownOver = S.gid;
-  const w = S.winner, you = nameOf(w) === 'You';
+  const w = S.winner, you = isMe(w);
   $('overTitle').textContent = you ? 'You win' : nameOf(w) + ' wins';
   $('overSub').textContent = S.seats.map((x, t) => `${nameOf(t)} ${S.pawns[t].filter(l => l === HOME).length} home`).join(' · ');
   $('overWait').hidden = !isGuest();
@@ -720,10 +728,10 @@ function renderMarks(){
   $('marks').innerHTML = o;
 }
 function statusHtml(){
-  const who = nameOf(S.turn), you = who === 'You', note = noteText();
+  const who = nameOf(S.turn), you = isMe(S.turn), note = noteText();
   if (S.lobby) return 'Waiting for players to join';
   if (isGuest() && hostAway) return '<b>The host disconnected</b> · waiting for them to come back';
-  if (S.phase === 'over') return `<b>${nameOf(S.winner)} ${nameOf(S.winner) === 'You' ? 'win' : 'wins'}!</b>`;
+  if (S.phase === 'over') return `<b>${nameOf(S.winner)} ${isMe(S.winner) ? 'win' : 'wins'}!</b>`;
   if (!mine(S.turn)){
     const away = isAuto() && kindOf(S.turn) === 'remote';
     const what = S.phase === 'move' && S.card != null ? `${who} drew ${S.card === 'B' ? 'BUMP!' : S.card}` : `${note && S.phase === 'draw' ? note + ' · ' : ''}${who}'s turn`;
@@ -783,7 +791,7 @@ function mainAction(){
     waiting = true; render();
     net.room.send({t: a, seq: S.seq});
     const seq = S.seq;
-    setTimeout(() => { if (waiting && S.seq === seq){ waiting = false; if (net) net.room.send({t: 'hello'}); render(); } }, 4000);
+    setTimeout(() => { if (waiting && S.seq === seq){ waiting = false; if (net) net.room.send({t: 'hello', name: Kit.myName()}); render(); } }, 4000);
     return;
   }
   if (a === 'draw') draw(); else pass();
@@ -825,13 +833,18 @@ function seatRows(){
     const row = document.createElement('div');
     row.className = 'seatRow';
     const lab = `<span class="swatch" style="background:${COLORS[c].fill}"></span><span class="nm">${COLORS[c].name}</span>`;
-    if (online && t === 0){ row.innerHTML = lab + '<span class="fixed">You · this device</span>'; box.appendChild(row); return; }
+    if (online && t === 0){
+      row.innerHTML = lab + '<span class="fixed">You · this device</span>';
+      row.appendChild(Kit.nameField(Kit.myName(), 'Your name', v => Kit.setMyName(v)));
+      box.appendChild(row); return;
+    }
     if (online){
       row.innerHTML = lab + '<div class="seg"><button type="button" data-v="o">Online player</button><button type="button" data-v="c">Computer</button></div>';
       seg(row.querySelector('.seg'), () => cfg.oseats[t], v => { cfg.oseats[t] = v; syncLevel(); syncHint(); });
     } else {
       row.innerHTML = lab + '<div class="seg"><button type="button" data-v="h">Person</button><button type="button" data-v="c">Computer</button></div>';
-      seg(row.querySelector('.seg'), () => cfg.cpu[t] ? 'c' : 'h', v => { cfg.cpu[t] = v === 'c'; syncLevel(); });
+      seg(row.querySelector('.seg'), () => cfg.cpu[t] ? 'c' : 'h', v => { cfg.cpu[t] = v === 'c'; seatRows(); });
+      if (!cfg.cpu[t]) row.appendChild(Kit.nameField(cfg.names[t], 'Name (optional)', v => { cfg.names[t] = v; }));
     }
     box.appendChild(row);
   });
@@ -878,23 +891,37 @@ function closeRoom(){
   if (net.room.close) net.room.close();
   net = null;
 }
+/* A guest's name for its seat; blank goes back to the seat's colour. Returns whether anything changed. */
+function setName(t, raw){
+  const x = S.seats[t], v = Kit.cleanName(raw);
+  if ((x.name || '') === v && !!x.named === !!v) return false;
+  x.name = v; x.named = !!v;
+  return true;
+}
 function onHostMsg(m, from){
   if (!S) return;
   const seatOf = () => S.seats.findIndex(x => x.cid === from);
   if (m.t === 'hello'){
     gone.delete(from);
+    let changed = false;
     if (S.lobby && seatOf() < 0){
       const seat = S.seats.find((x, t) => kindOf(t) === 'remote' && (!x.cid || gone.has(x.cid)));
-      if (seat) seat.cid = from;
-      save(); renderLobby(); render();
-    } else net.room.send({t: 'state', S: Object.assign({}, S, {deck: S.deck.map(() => 0)}), to: from});
+      if (seat){ seat.cid = from; changed = true; }
+    }
+    if (seatOf() >= 0 && Kit.cleanName(m.name) && setName(seatOf(), m.name)) changed = true;
+    if (changed){ save(); renderLobby(); render(); }
+    else net.room.send({t: 'state', S: Object.assign({}, S, {deck: S.deck.map(() => 0)}), to: from});
   } else if (m.t === 'claim' && S.lobby){
     const x = S.seats[m.seat];
     if (x && kindOf(m.seat) === 'remote' && (!x.cid || gone.has(x.cid))){
       S.seats.forEach(y => { if (y.cid === from) y.cid = null; });
       x.cid = from;
+      if (Kit.cleanName(m.name)) setName(m.seat, m.name);
       save(); renderLobby(); render();
     }
+  } else if (m.t === 'name'){
+    const t = seatOf();
+    if (t >= 0 && setName(t, m.name)){ save(); renderLobby(); render(); }
   } else if (m.t === 'draw' || m.t === 'pass' || m.t === 'move'){
     if (S.lobby || S.over || busy || kindOf(S.turn) !== 'remote' || S.seats[S.turn].cid !== from || m.seq !== S.seq) return;
     if (m.t === 'draw' && S.phase === 'draw') draw();
@@ -906,7 +933,7 @@ function onHostMsg(m, from){
     if (t < 0) return;
     const x = S.seats[t];
     x.cid = null;
-    if (!S.lobby){ x.kind = 'cpu'; x.cpu = true; toast(`${COLORS[x.color].name} left · the computer is playing for them`); }
+    if (!S.lobby){ x.kind = 'cpu'; x.cpu = true; toast(`${seatName(t)} left · the computer is playing for them`); }
     save(); render(); renderLobby();
     if (!S.lobby && !S.over && S.turn === t && !busy) beginTurn();
   }
@@ -920,14 +947,14 @@ async function joinRoom(code){
     room = await Online.join({game: 'slide', code, on: {
       msg: onGuestMsg,
       hostGone: () => { hostAway = true; render(); },
-      hostBack: () => { hostAway = false; room.send({t: 'hello'}); render(); },
+      hostBack: () => { hostAway = false; room.send({t: 'hello', name: Kit.myName()}); render(); },
       join: () => { render(); renderLobby(); },
       leave: () => { render(); renderLobby(); }
     }});
   }catch(e){ leaveRoom(e.message); return; }
   net = {room, role: 'guest', joining: true};
   store.set('guest', {code: room.code});
-  room.send({t: 'hello'});
+  room.send({t: 'hello', name: Kit.myName()});
   const g = gen;
   setTimeout(() => { if (g === gen && isGuest() && net.joining) leaveRoom(`No game found with code ${code}.`); }, 7000);
 }
@@ -935,7 +962,7 @@ function onGuestMsg(m){
   if (m.t === 'state'){ if (busy) pending = m.S; else applyState(m.S, m.fx); }
   else if (m.t === 'apply'){
     if (!busy && S.phase === 'move' && m.seq === S.seq && moves[m.idx]) apply(moves[m.idx]);
-    else net.room.send({t: 'hello'});
+    else net.room.send({t: 'hello', name: Kit.myName()});
   } else if (m.t === 'fx'){ if (m.fx === 'pass') sound.bad(); }
   else if (m.t === 'closed') leaveRoom('The host ended the online game.');
 }
@@ -975,10 +1002,24 @@ function endOnline(){
   save(); render(); beginTurn();
 }
 function showLobby(){ $('lobby').hidden = false; renderLobby(); }
+const lobbyName = Kit.nameField(Kit.myName(), 'Your name', v => {
+  Kit.setMyName(v);
+  if (!net || !S) return;
+  clearTimeout(lobbyName.t);
+  lobbyName.t = setTimeout(() => {
+    if (isGuest()) net.room.send({t: 'name', name: v});
+    else { const t = S.seats.findIndex((_, i) => kindOf(i) === 'local'); if (t >= 0){ S.seats[t].name = v; S.seats[t].named = !!v; save(); renderLobby(); render(); } }
+  }, 300);
+});
+$('lobbyName').appendChild(lobbyName);
 function renderLobby(){
   if (!net || $('lobby').hidden || !S) return;
   const lobby = !!S.lobby, host = isHost();
   $('lobbyCode').textContent = net.room.code || '';
+  // while waiting, anyone with a seat can set the name the others see
+  const seated = host || S.seats.some(x => x.cid === Online.me);
+  $('lobbyName').hidden = !(lobby && seated);
+  if (document.activeElement !== lobbyName) lobbyName.value = Kit.myName();
   $('lobbySub').textContent = lobby ? (host ? 'Send this code or link to the other players.' : 'Waiting for the host to start.') : 'Game in progress.';
   $('lobbySeats').innerHTML = S.seats.map((x, t) => {
     const k = kindOf(t);
@@ -989,7 +1030,7 @@ function renderLobby(){
     else if (!x.cid) st = 'Waiting…';
     else st = present(x.cid) ? 'Joined' : 'Away';
     const open = lobby && isGuest() && k === 'remote' && (!x.cid || !present(x.cid)) && x.cid !== Online.me;
-    return `<li><span class="dot" style="background:${COLORS[x.color].fill}"></span><span class="nm">${COLORS[x.color].name}</span>` +
+    return `<li><span class="dot" style="background:${COLORS[x.color].fill}"></span><span class="nm">${seatName(t)}</span>` +
       (open ? `<button class="btn" type="button" data-seat="${t}">Take seat</button>` : `<span class="st ${st === 'Joined' || st === 'You' ? 'ok' : ''}">${st}</span>`) + '</li>';
   }).join('');
   const go = $('btnLobbyGo'), now = $('btnLobbyNow'), leave = $('btnLobbyLeave');
@@ -1027,7 +1068,7 @@ $('btnLobbyLeave').addEventListener('click', () => {
 });
 $('lobbySeats').addEventListener('click', e => {
   const b = e.target.closest('button[data-seat]');
-  if (b && isGuest()) net.room.send({t: 'claim', seat: +b.dataset.seat});
+  if (b && isGuest()) net.room.send({t: 'claim', seat: +b.dataset.seat, name: Kit.myName()});
 });
 $('btnShare').addEventListener('click', async () => {
   const r = await Online.share(net.room.link, 'Join my Slide & Bump game');

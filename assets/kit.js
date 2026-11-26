@@ -125,5 +125,20 @@ function sheetClose(overlay, canClose){
   sheet.insertBefore(b, sheet.firstChild);
 }
 
-window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg, fitSquare, sheetClose};
+/* Player names. People type them, and online they come from other devices and end up in the page, so keep them
+   short and plain. This device remembers one name (shared by every game) for its own player. */
+const cleanName = s => String(s == null ? '' : s).replace(/[<>&"'`\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+const myName = () => cleanName(prefs.get('name', ''));
+const setMyName = n => prefs.set('name', cleanName(n));
+/* A text box for a player's name. onName gets the cleaned name on every change. */
+function nameField(value, placeholder, onName){
+  const inp = document.createElement('input');
+  inp.className = 'nameIn'; inp.type = 'text'; inp.maxLength = 16; inp.value = value || ''; inp.placeholder = placeholder;
+  inp.setAttribute('aria-label', placeholder); inp.autocomplete = 'off'; inp.spellcheck = false; inp.enterKeyHint = 'done';
+  inp.addEventListener('input', () => onName(cleanName(inp.value)));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); inp.blur(); } });
+  return inp;
+}
+
+window.Kit = {RM, sleep, store, sound, soundButton, callout, confetti, stopConfetti, seg, fitSquare, sheetClose, cleanName, myName, setMyName, nameField};
 })();

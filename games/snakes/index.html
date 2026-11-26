@@ -76,7 +76,10 @@
 .pawn.on .ring{opacity:1;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{50%{stroke-opacity:.25}}
 
-.seatRow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.seatRow{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.seatRow .nameIn{flex:1 1 150px}
+.lobbyName{margin:4px 0 0;text-align:left}
+.lobbyName .nameIn{margin-top:6px}
 .seatRow .nm{display:flex;align-items:center;gap:8px;font-family:var(--f-ui);font-weight:700;font-size:19px;min-width:86px}
 .seatRow .dot{width:20px;height:20px;border-radius:50%}
 .thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
@@ -167,6 +170,7 @@
     <p class="sub" id="lobbySub"></p>
     <div class="code" id="lobbyCode" aria-label="Game code"></div>
     <button class="btn" id="btnShare" type="button">Share link</button>
+    <div class="lobbyName" id="lobbyName" hidden><h4>Your name</h4></div>
     <ul class="seatList" id="lobbySeats"></ul>
     <button class="btn primary big go" id="btnLobbyGo" type="button">START</button>
     <button class="btn go" id="btnLobbyNow" type="button" style="width:100%" hidden>Start now · computer plays open seats</button>
@@ -313,6 +317,7 @@ if (!cfg.seats) cfg.seats = (cfg.cpu || [false, true, true, true]).map(c => c ? 
 cfg.seats = cfg.seats.map(k => k === 'o' ? 'h' : k);
 if (!cfg.mode) cfg.mode = 'local';                                                           // 'local' | 'online'
 if (!cfg.oseats) cfg.oseats = ['h', 'o', 'o', 'o'];                                          // online: seat 0 is the host, others o online / c computer
+if (!cfg.names) cfg.names = ['', '', '', ''];           // names typed for people on this device
 let S = null, gen = 0, busy = false, thinking = false, rollingDie = false;
 let net = null, pending = null, waitingRoll = false, hostAway = false, shownOver = '';
 const gone = new Set();   // host: guests whose presence has left the room (their claimed seat is free again)
@@ -323,7 +328,8 @@ const kind = i => S.players[i].kind || (S.players[i].cpu ? 'cpu' : 'local');
 const isCpu = i => kind(i) === 'cpu';
 const mine = i => isGuest() ? S.players[i].cid === Online.me : kind(i) === 'local';
 const myCount = () => S.players.filter((_, i) => mine(i)).length;
-const label = i => mine(i) && myCount() === 1 ? 'You' : S.players[i].name;
+const isMe = i => mine(i) && myCount() === 1;
+const label = i => { const p = S.players[i]; return isMe(i) && !p.named ? 'You' : Kit.cleanName(p.name) || PCOLS[i].name; };
 const noteText = () => (S.note || '').replace(/@(\d)/g, (_, k) => label(+k));
 const present = cid => !!(net && cid && net.room.present.has(cid));
 const save = () => { if (isHost() && S.phase !== 'joining') store.set('game', S); };
@@ -334,8 +340,10 @@ function nameList(kinds){
   return kinds.map((k, i) => k === 'c' ? (cpus === 1 ? 'Computer' : 'Computer ' + (++ci)) : PCOLS[i].name);
 }
 function freshPlayers(){
-  const kinds = (cfg.mode === 'online' ? ['h'].concat(cfg.oseats.slice(1)) : cfg.seats).slice(0, cfg.count), nm = nameList(kinds);
-  return kinds.map((k, i) => ({kind: k === 'c' ? 'cpu' : k === 'o' ? 'remote' : 'local', cpu: k === 'c', name: nm[i], cid: null, pos: 0, ladders: 0, snakes: 0}));
+  const online = cfg.mode === 'online';
+  const kinds = (online ? ['h'].concat(cfg.oseats.slice(1)) : cfg.seats).slice(0, cfg.count), nm = nameList(kinds);
+  const typed = i => kinds[i] !== 'h' ? '' : online ? Kit.myName() : Kit.cleanName(cfg.names[i]);
+  return kinds.map((k, i) => ({kind: k === 'c' ? 'cpu' : k === 'o' ? 'remote' : 'local', cpu: k === 'c', name: typed(i) || nm[i], named: !!typed(i), cid: null, pos: 0, ladders: 0, snakes: 0}));
 }
 function blankState(players, phase){
   return {players, finish: cfg.finish, six: cfg.six, turn: 0, die: 0, note: '', over: false, started: true, rolls: 0, seq: 0,
@@ -483,7 +491,7 @@ function showOver(){
   const key = S.gid + ':' + S.seq, w = S.winner;
   if (shownOver === key) return;
   shownOver = key;
-  $('overTitle').textContent = label(w) === 'You' ? 'You win' : label(w) + ' wins';
+  $('overTitle').textContent = isMe(w) ? 'You win' : label(w) + ' wins';
   const order = S.players.map((q, i) => ({q, i})).sort((a, b) => b.q.pos - a.q.pos);
   $('finalList').innerHTML = order.map(x => `<li class="${x.i === w ? 'win' : ''}"><span>${label(x.i)}</span><span>${x.q.pos || 'Start'}</span></li>`).join('') +
     `<li><span>Rolls this game</span><span>${S.rolls}</span></li>`;
@@ -528,12 +536,12 @@ function render(){
     <span class="swatch" style="background:${PCOLS[i].c}"></span>
     <div class="who"><div class="nm">${label(i)}</div><div class="sub">${seatSub(i)} · ${p.ladders}↑ ${p.snakes}↓</div></div>
     <div class="num" aria-label="on square ${p.pos || 'start'}">${p.pos || '–'}</div></div>`).join('');
-  const t = S.turn, who = label(t) === 'You' ? 'Your turn' : label(t) + "'s turn", note = noteText();
+  const t = S.turn, who = isMe(t) ? 'Your turn' : label(t) + "'s turn", note = noteText();
   let st;
   if (S.phase === 'joining') st = `Connecting to game <b>${net ? net.room.code : ''}</b>…`;
   else if (S.phase === 'lobby') st = 'Waiting for players to join';
   else if (isGuest() && hostAway) st = '<b>The host disconnected</b> · waiting for them to come back';
-  else if (S.over) st = `<b>${label(S.winner) === 'You' ? 'You win!' : label(S.winner) + ' wins!'}</b>`;
+  else if (S.over) st = `<b>${isMe(S.winner) ? 'You win!' : label(S.winner) + ' wins!'}</b>`;
   else if (busy) st = `<b>${label(t)}</b> rolled ${S.die}`;
   else if (canRoll() || (isGuest() && mine(t))) st = `${note ? note + ' · ' : ''}<b>${who}</b> · roll!`;
   else if (kind(t) === 'remote' && isHost() && !present(P[t].cid)) st = `<span class="${thinking ? 'thinking' : ''}">${label(t)} is away · rolling for them</span>`;
@@ -570,22 +578,37 @@ async function hostRoom(code){
   net = {room, role: 'host'};
   S.online = {code: room.code};
 }
+/* A guest's name for its seat; blank goes back to the seat's colour. Returns whether anything changed. */
+function setName(t, raw){
+  const p = S.players[t], v = Kit.cleanName(raw), name = v || PCOLS[t].name;
+  if (p.name === name && !!p.named === !!v) return false;
+  p.name = name; p.named = !!v;
+  return true;
+}
 function onHostMsg(m, from){
   if (m.t === 'hello'){
     gone.delete(from);
+    let changed = false;
     if (S.phase === 'lobby' && !S.players.some(p => p.cid === from)){
       const seat = S.players.find((p, i) => kind(i) === 'remote' && seatFree(p));
-      if (seat) seat.cid = from;
-      save(); broadcast(); renderLobby();
-    } else net.room.send({t: 'state', S, to: from});
+      if (seat){ seat.cid = from; changed = true; }
+    }
+    const t = S.players.findIndex(p => p.cid === from);
+    if (t >= 0 && Kit.cleanName(m.name) && setName(t, m.name)) changed = true;
+    if (changed){ save(); broadcast(); renderLobby(); }
+    else net.room.send({t: 'state', S, to: from});
     render();
   } else if (m.t === 'claim' && S.phase === 'lobby'){
     const s = S.players[m.seat];
     if (s && kind(m.seat) === 'remote' && seatFree(s)){
       S.players.forEach(p => { if (p.cid === from) p.cid = null; });
       s.cid = from;
+      if (Kit.cleanName(m.name)) setName(m.seat, m.name);
       save(); broadcast(); renderLobby(); render();
     }
+  } else if (m.t === 'name'){
+    const t = S.players.findIndex(p => p.cid === from);
+    if (t >= 0 && setName(t, m.name)){ save(); broadcast(); renderLobby(); render(); }
   } else if (m.t === 'roll'){
     if (S.phase === 'play' && !S.over && !busy && kind(S.turn) === 'remote' && S.players[S.turn].cid === from && m.seq === S.seq) roll();
   } else if (m.t === 'quit'){
@@ -594,7 +617,7 @@ function onHostMsg(m, from){
     if (i < 0) return;
     const p = S.players[i];
     p.cid = null;
-    if (S.phase !== 'lobby'){ p.kind = 'cpu'; p.cpu = true; toast(`${p.name} left · the computer is playing for them`); }
+    if (S.phase !== 'lobby'){ p.kind = 'cpu'; p.cpu = true; toast(`${Kit.cleanName(p.name)} left · the computer is playing for them`); }
     save(); broadcast(); render(); renderLobby();
     if (S.phase === 'play' && !S.over && S.turn === i && !busy) beginTurn();
   }
@@ -610,14 +633,14 @@ async function joinRoom(code){
     room = await Online.join({game: 'snakes', code, on: {
       msg: onGuestMsg,
       hostGone: () => { hostAway = true; render(); },
-      hostBack: () => { hostAway = false; room.send({t: 'hello'}); render(); },
+      hostBack: () => { hostAway = false; room.send({t: 'hello', name: Kit.myName()}); render(); },
       join: () => { render(); renderLobby(); },
       leave: () => { render(); renderLobby(); }
     }});
   }catch(e){ leaveRoom(e.message); return; }
   net = {room, role: 'guest'};
   store.set('guest', {code: room.code});
-  room.send({t: 'hello'});
+  room.send({t: 'hello', name: Kit.myName()});
   const g = gen;
   setTimeout(() => { if (g === gen && isGuest() && S.phase === 'joining') leaveRoom(`No game found with code ${code}.`); }, 7000);
 }
@@ -625,7 +648,7 @@ function onGuestMsg(m){
   if (m.t === 'state'){ if (busy) pending = m.S; else applyState(m.S); }
   else if (m.t === 'move'){
     if (S.phase === 'play' && m.seq === S.seq && !busy) playMove(m.i, m.d);
-    else net.room.send({t: 'hello'});
+    else net.room.send({t: 'hello', name: Kit.myName()});
   } else if (m.t === 'closed') leaveRoom('The host ended the online game.');
 }
 function applyState(ns){
@@ -660,10 +683,24 @@ function endOnline(){
   save(); render(); placePawns(); beginTurn();
 }
 function showLobby(){ $('lobby').hidden = false; renderLobby(); }
+const lobbyName = Kit.nameField(Kit.myName(), 'Your name', v => {
+  Kit.setMyName(v);
+  if (!net || !S) return;
+  clearTimeout(lobbyName.t);
+  lobbyName.t = setTimeout(() => {
+    if (isGuest()) net.room.send({t: 'name', name: v});
+    else { const t = S.players.findIndex((_, i) => kind(i) === 'local'); if (t >= 0){ const p = S.players[t]; p.name = v || PCOLS[t].name; p.named = !!v; save(); broadcast(); renderLobby(); render(); } }
+  }, 300);
+});
+$('lobbyName').appendChild(lobbyName);
 function renderLobby(){
   if (!net || $('lobby').hidden || !S) return;
   const lobby = S.phase === 'lobby', host = isHost();
   $('lobbyCode').textContent = net.room.code || '';
+  // while waiting, anyone with a seat can set the name the others see
+  const seated = host || S.players.some(p => p.cid === Online.me);
+  $('lobbyName').hidden = !(lobby && seated);
+  if (document.activeElement !== lobbyName) lobbyName.value = Kit.myName();
   $('lobbySub').textContent = lobby ? (host ? 'Send this code or link to the other players.' : 'Waiting for the host to start.') : 'Game in progress.';
   $('lobbySeats').innerHTML = S.players.map((p, i) => {
     const k = kind(i);
@@ -674,7 +711,7 @@ function renderLobby(){
     else if (!p.cid) st = 'Waiting…';
     else st = present(p.cid) ? 'Joined' : 'Away';
     const open = lobby && isGuest() && k === 'remote' && (!p.cid || !present(p.cid)) && p.cid !== Online.me;
-    return `<li><span class="dot" style="background:${PCOLS[i].c}"></span><span class="nm">${p.name}</span>` +
+    return `<li><span class="dot" style="background:${PCOLS[i].c}"></span><span class="nm">${Kit.cleanName(p.name)}</span>` +
       (open ? `<button class="btn" type="button" data-seat="${i}">Take seat</button>` : `<span class="st ${st === 'Joined' || st === 'You' ? 'ok' : ''}">${st}</span>`) + '</li>';
   }).join('');
   const go = $('btnLobbyGo'), leave = $('btnLobbyLeave');
@@ -693,7 +730,7 @@ function guestRoll(){
   waitingRoll = true; render();
   net.room.send({t: 'roll', seq: S.seq});
   const seq = S.seq;
-  setTimeout(() => { if (waitingRoll && S.seq === seq){ waitingRoll = false; net && net.room.send({t: 'hello'}); render(); } }, 4000);
+  setTimeout(() => { if (waitingRoll && S.seq === seq){ waitingRoll = false; net && net.room.send({t: 'hello', name: Kit.myName()}); render(); } }, 4000);
 }
 
 /* ---------- Input ---------- */
@@ -758,7 +795,7 @@ $('btnShare').addEventListener('click', async () => {
 });
 $('lobbySeats').addEventListener('click', e => {
   const b = e.target.closest('button[data-seat]');
-  if (b && isGuest()) net.room.send({t: 'claim', seat: +b.dataset.seat});
+  if (b && isGuest()) net.room.send({t: 'claim', seat: +b.dataset.seat, name: Kit.myName()});
 });
 function startFromLobby(){
   $('lobby').hidden = true;
@@ -798,12 +835,17 @@ function seatRows(){
     const row = document.createElement('div');
     row.className = 'seatRow';
     const nm = `<span class="nm"><span class="dot" style="background:${PCOLS[t].c}"></span>${PCOLS[t].name}</span>`;
-    if (online && t === 0){ row.innerHTML = nm + '<span class="fixed">You · this device</span>'; box.appendChild(row); continue; }
+    if (online && t === 0){
+      row.innerHTML = nm + '<span class="fixed">You · this device</span>';
+      row.appendChild(Kit.nameField(Kit.myName(), 'Your name', v => Kit.setMyName(v)));
+      box.appendChild(row); continue;
+    }
     row.innerHTML = nm + (online
       ? '<div class="seg"><button type="button" data-v="o">Online player</button><button type="button" data-v="c">Computer</button></div>'
       : '<div class="seg"><button type="button" data-v="h">Person</button><button type="button" data-v="c">Computer</button></div>');
     const list = online ? cfg.oseats : cfg.seats;
-    seg(row.querySelector('.seg'), () => list[t], v => { list[t] = v; syncHint(); });
+    seg(row.querySelector('.seg'), () => list[t], v => { list[t] = v; if (online) syncHint(); else seatRows(); });
+    if (!online && list[t] === 'h') row.appendChild(Kit.nameField(cfg.names[t], 'Name (optional)', v => { cfg.names[t] = v; }));
     box.appendChild(row);
   }
   syncHint();

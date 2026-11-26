@@ -70,6 +70,10 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
 
 /* Segmented control */
 .seg{display:inline-flex;flex-wrap:wrap;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+/* Player name box (Kit.nameField) */
+.nameIn{min-width:0;width:100%;min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:rgba(0,0,0,.25);color:#fff;
+  font-family:var(--f-ui);font-weight:600;font-size:18px;padding:0 12px;-webkit-user-select:text;user-select:text}
+.nameIn::placeholder{color:rgba(255,255,255,.4)}
 .seg button{background:transparent;border:none;min-height:48px;padding:0 16px;font-family:var(--f-ui);font-weight:600;font-size:17px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 
