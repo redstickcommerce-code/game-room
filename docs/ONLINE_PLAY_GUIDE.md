@@ -1,6 +1,6 @@
 # Adding online play to a game
 
-How to add online play to the games that don't have it yet. Snakes & Ladders, Hot Dice and Slide & Bump already have it. **`games/slide/index.html` is the reference implementation**: copy its structure, not just its ideas. Everything below matches that file as of commit `8396f89`.
+How to add online play to the games that don't have it yet. Snakes & Ladders, Hot Dice, Slide & Bump, Yacht and Last Card already have it. **`games/slide/index.html` is the reference implementation**: copy its structure, not just its ideas. Everything below matches that file as of commit `8396f89`.
 
 ## Which games are left, easiest first
 
@@ -10,10 +10,8 @@ How to add online play to the games that don't have it yet. Snakes & Ladders, Ho
 | 2 | Checkers | 2 | No | None | Also has a `rec` store key (records); only the host should update it. |
 | 3 | Chess | 2 | No | None | Guests work out the legal moves from the board, as in Slide. Watch promotion choice and draw offers. |
 | 4 | Backgammon | 2 | No | Dice | The host rolls. Guests send the chosen move index; doubling cube decisions are separate intents. |
-| 5 | Yacht | 1–4 | No | Dice | Very close to Hot Dice: the host rolls, guests toggle holds and pick categories. Copy `games/hotdice`. Only the host updates `best`. |
 | 6 | Mancala | 2 | No | None | **No setup pop-up**: its settings are inline, so it needs the Same device / Online toggle and a join box added to that inline panel. |
 | 7 | Dominoes | 2 | **Yes**, hands and boneyard | Shuffle | Needs per-player masked state (below). |
-| 8 | Last Card | 2–4 | **Yes**, hands and deck | Shuffle | Masked state. 2–4 seats, like Slide. |
 | 9 | Gin Rummy | 2 | **Yes**, hands and stock | Shuffle | Masked state. Knock and gin decisions are intents. |
 | 10 | Cribbage | 2 | **Yes**, hands, crib and deck | Shuffle | Masked state. The discard-to-crib step has **both** players acting at once, so it's the hardest. |
 
@@ -105,6 +103,7 @@ A guest's browser can read everything it's sent, so **never broadcast the full `
 - `save(fx)` on the host loops over the guests who hold seats and sends `{t:'state', S: viewFor(cid), fx, to: cid}` to each. It also sends one fully masked broadcast for spectators. Answer `hello` the same way, with `viewFor(from)`.
 - Guests can't work out the legal-move list for other players. For their own turn they work it out from their own hand, which they can see. The `{t:'apply'}` replay trick only works if the move is safe to reveal, such as a card being played face-up. Draws must come from the host as state.
 - Reveals at the end of a hand, such as gin layoffs or the cribbage show, are just states where the host leaves hands unmasked.
+- **`games/lastcard` is the worked example** of all of this: `viewFor`, `sendState`, and the `spect: true` flag on the spectator copy, which a guest that holds a seat ignores (otherwise a fully masked broadcast can land after its own view and hide its hand).
 - **Cribbage discards:** both players choose at once. Let each guest send `{t:'discard', cards, seq}` whenever it's ready, and have the host advance once both seats have discarded. Don't require it to be that seat's turn.
 
 ### 9. Site listing and README
